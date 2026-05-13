@@ -1,0 +1,45 @@
+name: flutter_spine
+description: "Shared infrastructure for Flutter apps — MVVM base classes, effect bus, scaffold suite, network layer, and error model."
+version: 0.1.0
+publish_to: https://pub.dev
+homepage: https://github.com/Penny7088/flutter_arch_river_pod
+repository: https://github.com/Penny7088/flutter_arch_river_pod.git
+issue_tracker: https://github.com/Penny7088/flutter_arch_river_pod/issues
+documentation: https://github.com/Penny7088/flutter_arch_river_pod/tree/main/example
+
+environment:
+  sdk: ^3.5.3
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  logger: ^2.5.0
+  hive: ^2.2.3
+  meta: ^1.15.0
+  go_router: ^14.6.2
+  easy_refresh: ^3.4.0
+  dio: ^5.7.0
+  http_parser: ^4.0.0
+  web_socket_channel: ^3.0.1
+  args: ^2.6.0
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.3
+  custom_lint: ^0.7.0
+  custom_lint_builder: ^0.7.0
+  riverpod_lint: ^2.6.3
+  analyzer: ">=6.0.0 <8.0.0"
+  mocktail: ^1.0.4
+  fake_async: ^1.3.1
+  stream_channel: ^2.1.2
+
+executables:
+  flutter_spine: bin/flutter_spine.dart
