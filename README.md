@@ -21,8 +21,7 @@ Shared infrastructure for Flutter apps. Provides **MVVM base classes + effect bu
 
 ```yaml
 dependencies:
-  flutter_spine:
-    path: ../flutter_spine
+  flutter_spine: ^0.1.0
 ```
 
 ```dart
