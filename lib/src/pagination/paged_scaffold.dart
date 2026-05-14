@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../presentation/page_state/async_page_state_view.dart';
-import '../presentation/page_state/empty_view.dart';
-import '../presentation/page_state/error_view.dart';
-import '../presentation/page_state/loading_view.dart';
+import '../../flutter_spine.dart';
 
 /// 带页面状态管理的通用 Scaffold。
 ///

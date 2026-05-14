@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'empty_view.dart';
-import 'error_view.dart';
-import 'loading_view.dart';
+import '../../../flutter_spine.dart';
 
 /// 对 [AsyncValue<T>] 的四种状态（loading / error / empty / data）提供统一渲染。
 ///

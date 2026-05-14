@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../flutter_spine.dart';
+
 /// 骨架屏基础色块。不依赖 shimmer 包，业务层可自行包一层动画。
 ///
 /// 业务包用 shimmer 包裹示例（在 flutter_wallet 中）：

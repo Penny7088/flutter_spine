@@ -10,6 +10,8 @@
 ///   * Toast 回调由业务包注入到 [ErrorObserver]，Core 不依赖 toast 库。
 library;
 
+import 'flutter_spine.dart';
+
 // ── Error ──────────────────────────────────────────────────────────────────
 export 'src/error/app_exception.dart';
 export 'src/error/safe_call.dart';

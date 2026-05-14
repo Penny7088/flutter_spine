@@ -2,16 +2,7 @@ import 'package:flutter/widgets.dart' as flutter show runApp;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../effect/default_effect_handler.dart';
-import '../effect/effect_listener.dart';
-import '../logging/logger_impl.dart';
-import '../network/http/http_providers.dart';
-import '../network/ws/ws_providers.dart';
-import '../observers/error_observer.dart';
-import '../observers/log_observer.dart';
-import '../storage/storage_providers.dart';
-import 'bootstrap_audit.dart';
-import 'flutter_spine_config.dart';
+import '../../flutter_spine.dart';
 
 /// 一行启动 flutter_spine 应用——业务侧 main.dart 收敛到 ~15 行。
 ///

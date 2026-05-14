@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../error/app_exception.dart';
-import 'paged_state.dart';
+import '../../flutter_spine.dart';
 
 /// 分页 Notifier 的公共接口。
 ///

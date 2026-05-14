@@ -1,3 +1,5 @@
+import '../../../flutter_spine.dart';
+
 /// `bootstrap` 命令：在新工程里一键生成 main.dart + router 骨架。
 ///
 /// **不再生成 effect_handler.dart**——直接用 `MaterialDefaultEffectHandler`，

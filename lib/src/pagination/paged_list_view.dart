@@ -211,7 +211,7 @@ class _PagedListViewState<T> extends ConsumerState<PagedListView<T>> {
     }
     // 底部 footer 区域
     if (state.moreError != null) {
-      final retry = () => _notifier.loadMore();
+      Future<bool> retry() => _notifier.loadMore();
       return widget.moreErrorBuilder?.call(state.moreError!, retry) ??
           MoreErrorBar(error: state.moreError!, onRetry: retry);
     }

@@ -1,6 +1,6 @@
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'ws_connection_state.dart';
+import '../../../flutter_spine.dart';
 
 /// 工厂签名：根据 [config] 创建一个底层 [WebSocketChannel]。
 ///

@@ -6,6 +6,9 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/listener.dart';
 import 'package:custom_lint_builder/custom_lint_builder.dart';
 
+import '../flutter_spine.dart';
+import 'avoid_direct_dio.dart';
+
 /// 禁止业务代码直接使用 WebSocket 底层 API：
 ///
 /// * `package:web_socket_channel/...` 的 `WebSocketChannel` / `IOWebSocketChannel` /

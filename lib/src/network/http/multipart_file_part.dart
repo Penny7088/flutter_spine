@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../flutter_spine.dart';
+
 /// 一个 multipart 文件 / 二进制片段。**不引用 Dio 类型**——业务通过它描述
 /// 上传 payload，[DioHttpClient.upload] 内部转成 Dio 的 `MultipartFile`。
 ///

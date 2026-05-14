@@ -1,5 +1,5 @@
-import 'package:flutter_spine/flutter_spine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_spine/flutter_spine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // ── 最小化测试 Notifier ──────────────────────────────────────────────────────
@@ -11,7 +11,7 @@ class _FakeFilter {
 class _FakeListNotifier
     extends AutoDisposeFamilyAsyncNotifier<PagedState<String>, _FakeFilter>
     with PagedNotifierMixin<String, _FakeFilter> {
-  /// 控制测试场景：每页最多 [pageSize] 条，总共 [_total] 条
+  /// 控制测试场景：每页最多 [pageSize] 条，总共 [total] 条
   static int total = 50;
   static bool throwOnLoad = false;
 
@@ -69,8 +69,8 @@ void main() {
       final state = await container.read(_fakeListProvider.future);
 
       expect(hasMore, true);
-      expect(state?.items.length, 20);
-      expect(state?.page, 2);
+      expect(state.items.length, 20);
+      expect(state.page, 2);
     });
 
     test('到最后一页时 hasMore=false', () async {

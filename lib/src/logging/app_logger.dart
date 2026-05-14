@@ -1,3 +1,5 @@
+import '../../flutter_spine.dart';
+
 /// 日志抽象接口。业务包针对不同环境注入不同实现（prod vs debug vs test）。
 ///
 /// 好处：

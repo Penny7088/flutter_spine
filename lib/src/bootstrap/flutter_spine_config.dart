@@ -2,12 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../effect/default_effect_handler.dart';
-import '../effect/material_default_effect_handler.dart';
-import '../logging/app_logger.dart';
-import '../network/http/dio_http_client.dart';
-import '../network/ws/ws_client.dart';
-import '../storage/key_value_storage.dart';
+import '../../flutter_spine.dart';
 
 /// `FlutterSpine.runApp` 的配置容器。所有字段都是**渐进式**——
 /// 从"只填 effectHandler"到"全套接入"业务想配多少配多少。

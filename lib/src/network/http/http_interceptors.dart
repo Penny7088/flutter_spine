@@ -1,11 +1,10 @@
 import 'package:dio/dio.dart';
 
-import '../../error/app_exception.dart';
-import '../../logging/app_logger.dart';
+import '../../../flutter_spine.dart';
 
 /// 自动给请求挂上 `Authorization` 头。
 ///
-/// [tokenProvider] 是个 sync 函数（不是 async）——保持 interceptor 同步链路简单。
+/// tokenProvider 是个 sync 函数（不是 async）——保持 interceptor 同步链路简单。
 /// 业务侧若需要异步取 token（比如刷新），请在 `tokenProvider` 内部走"读 cache"，
 /// 真正的刷新逻辑通过另一条路径触发。
 ///

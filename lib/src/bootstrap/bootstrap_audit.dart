@@ -1,18 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../effect/material_default_effect_handler.dart';
-import '../logging/logger_impl.dart';
-import '../network/http/http_providers.dart';
-import '../network/ws/ws_client.dart';
-import '../network/ws/ws_providers.dart';
-import '../storage/storage_providers.dart';
-import 'flutter_spine_config.dart';
+import '../../flutter_spine.dart';
 
 /// 接入完成度自检——在 [FlutterSpine.runApp] 启动时打印一份"已配置 / 未配置"
 /// 清单到控制台（仅 `kDebugMode`），release 自动跳过。
 ///
-/// 同样的数据也供 [DiagnosticsBanner] widget 渲染。
+/// 同样的数据也供 [FlutterSpineDiagnosticsBanner] widget 渲染。
 class BootstrapAudit {
   const BootstrapAudit._(this.entries);
 

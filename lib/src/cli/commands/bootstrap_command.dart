@@ -7,6 +7,7 @@ import '../templates/bootstrap_template.dart';
 import '../util/file_writer.dart';
 import '../util/naming.dart';
 import '../util/template_engine.dart';
+import 'base_command.dart';
 
 /// `bootstrap` 不接 `<name>` 业务参数，而是给整个 app 起骨架——所以**不**继承 [FlutterSpineCommand]。
 class BootstrapCommand extends Command<int> {

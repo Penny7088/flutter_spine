@@ -1,9 +1,4 @@
-import 'package:dio/dio.dart' show CancelToken;
-
-import '../../error/app_exception.dart';
-import 'http_method.dart';
-import 'http_response.dart';
-import 'multipart_file_part.dart';
+import '../../../flutter_spine.dart';
 
 export 'package:dio/dio.dart' show CancelToken;
 

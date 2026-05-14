@@ -11,7 +11,7 @@ import '../util/template_engine.dart';
 ///
 /// * 统一注册 `--path` / `--with-test` / `--dry-run` / `--force`
 /// * 提供 [naming] / [writer] / [render] 等便捷方法
-/// * 子类只需重写 [run] 并调 [render] + [writer.writeFile]
+/// * 子类只需重写 [run] 并调 [render] + [writer]
 abstract class FlutterSpineCommand extends Command<int> {
   FlutterSpineCommand() {
     argParser

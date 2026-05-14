@@ -6,6 +6,8 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/listener.dart';
 import 'package:custom_lint_builder/custom_lint_builder.dart';
 
+import '../flutter_spine.dart';
+
 /// 禁止业务代码直接 `new` Dio 类型或 import `package:dio/dio.dart`。
 ///
 /// 触发场景（任一）：

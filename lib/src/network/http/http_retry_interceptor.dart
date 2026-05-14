@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 
-import '../../logging/app_logger.dart';
+import '../../../flutter_spine.dart';
 
 /// 请求重试拦截器（指数退避 + 抖动 + 幂等性判断）。
 ///

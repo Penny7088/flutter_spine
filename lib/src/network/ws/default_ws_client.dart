@@ -16,7 +16,7 @@ import 'ws_connection_state.dart';
 /// * topic 订阅 / 引用计数 / 重连后自动重订阅（需 [WsClientConfig.topicRouter]）
 /// * 业务可注入 [WsChannelFactory] 来替换底层 channel（测试用 fake channel）
 ///
-/// 详见 [`WsClient`] 接口文档。
+/// 详见 [WsClient] 接口文档。
 class DefaultWsClient implements WsClient {
   DefaultWsClient(
     this._config, {

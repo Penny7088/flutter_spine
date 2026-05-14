@@ -1,9 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../effect/effect.dart';
-import '../effect/effect_bus.dart';
-import '../error/result.dart';
+import '../../flutter_spine.dart';
 
 /// 异步 VM 的核心能力（`refresh` / `patch` / `emit` / `mutate`）的可复用 mixin。
 ///

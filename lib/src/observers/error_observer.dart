@@ -60,7 +60,7 @@ class ErrorObserver extends ProviderObserver {
     if (!shouldToast) return;
 
     final msg = switch (error) {
-      AppException e => e.displayMessage,
+      final AppException e => e.displayMessage,
       _ => error.toString(),
     };
     if (msg.isNotEmpty) onToast!(msg);

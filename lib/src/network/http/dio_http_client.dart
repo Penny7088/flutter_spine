@@ -15,7 +15,7 @@ import 'multipart_file_part.dart';
 /// 自定义 baseUrl / 拦截器：传 `dio` 参数（已配置好的实例）或 `config` 参数（让本类
 /// 自己造）。
 class DioHttpClient extends HttpClient {
-  /// 用一个**已配置好的** [dio] 实例（你自己加好 baseUrl / interceptors / adapter）。
+  /// 用一个**已配置好的** \[dio\] 实例（你自己加好 baseUrl / interceptors / adapter）。
   /// 适合复杂场景或单元测试（注入 `MockHttpClientAdapter`）。
   DioHttpClient.fromDio(this._dio);
 

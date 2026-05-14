@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../flutter_spine.dart';
+
 /// 过滤条件 Notifier 基类。
 ///
 /// 搭配 [PagedNotifierMixin] 使用时，filter provider 的值作为列表 family 参数。

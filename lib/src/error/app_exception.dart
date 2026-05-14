@@ -30,55 +30,55 @@ sealed class AppException implements Exception {
 /// 无网络 / DNS / Socket 级错误。
 class NetworkException extends AppException {
   const NetworkException({
-    String message = 'No internet connection',
-    Object? raw,
-    StackTrace? stackTrace,
-  }) : super(code: -2, message: message, raw: raw, stackTrace: stackTrace);
+    super.message = 'No internet connection',
+    super.raw,
+    super.stackTrace,
+  }) : super(code: -2);
 }
 
 /// 请求 / 连接超时。
 class TimeoutAppException extends AppException {
   const TimeoutAppException({
-    String message = 'Connection timeout',
-    Object? raw,
-    StackTrace? stackTrace,
-  }) : super(code: -3, message: message, raw: raw, stackTrace: stackTrace);
+    super.message = 'Connection timeout',
+    super.raw,
+    super.stackTrace,
+  }) : super(code: -3);
 }
 
 /// 用户主动取消。通常不需要弹 toast，UI 层可 `switch` 过滤。
 class CancelledException extends AppException {
   const CancelledException({
-    String message = 'Cancelled',
-    Object? raw,
-    StackTrace? stackTrace,
-  }) : super(code: -4, message: message, raw: raw, stackTrace: stackTrace);
+    super.message = 'Cancelled',
+    super.raw,
+    super.stackTrace,
+  }) : super(code: -4);
 }
 
 /// 未登录 / Token 过期（HTTP 401）。上层可监听并跳转原生登录。
 class UnauthorizedException extends AppException {
   const UnauthorizedException({
-    String message = 'Unauthorized',
-    Object? raw,
-    StackTrace? stackTrace,
-  }) : super(code: 401, message: message, raw: raw, stackTrace: stackTrace);
+    super.message = 'Unauthorized',
+    super.raw,
+    super.stackTrace,
+  }) : super(code: 401);
 }
 
 /// 权限不足（HTTP 403）。
 class ForbiddenException extends AppException {
   const ForbiddenException({
-    String message = 'Forbidden',
-    Object? raw,
-    StackTrace? stackTrace,
-  }) : super(code: 403, message: message, raw: raw, stackTrace: stackTrace);
+    super.message = 'Forbidden',
+    super.raw,
+    super.stackTrace,
+  }) : super(code: 403);
 }
 
 /// 资源不存在（HTTP 404）。
 class NotFoundException extends AppException {
   const NotFoundException({
-    String message = 'Not found',
-    Object? raw,
-    StackTrace? stackTrace,
-  }) : super(code: 404, message: message, raw: raw, stackTrace: stackTrace);
+    super.message = 'Not found',
+    super.raw,
+    super.stackTrace,
+  }) : super(code: 404);
 }
 
 /// 服务端业务错误。[code] 是后端返回的业务码（如 45001、46100 等）。
@@ -94,13 +94,13 @@ class ServerException extends AppException {
 /// 本地缓存（Hive / SharedPreferences）读写异常。
 class CacheException extends AppException {
   const CacheException({
-    String message = 'Cache error',
-    Object? raw,
-    StackTrace? stackTrace,
-  }) : super(code: -10, message: message, raw: raw, stackTrace: stackTrace);
+    super.message = 'Cache error',
+    super.raw,
+    super.stackTrace,
+  }) : super(code: -10);
 }
 
-/// 兜底。不要在业务代码中主动抛出；由 [safeApiCall] 兜底使用。
+/// 兜底。不要在业务代码中主动抛出；由 safeApiCall 兜底使用。
 class UnknownException extends AppException {
   const UnknownException({
     required super.message,

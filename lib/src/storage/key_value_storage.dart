@@ -1,3 +1,5 @@
+import '../../flutter_spine.dart';
+
 /// KV 存储抽象接口。
 ///
 /// 具体实现：[HiveStorage]（已提供）。

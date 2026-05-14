@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import '../../logging/app_logger.dart';
+import '../../../flutter_spine.dart';
 
 /// 业务侧实现"刷 token"的回调签名。
 ///
@@ -45,7 +45,7 @@ typedef RefreshTokenCallback = Future<String?> Function();
 ///
 /// * `refreshToken()` 返回 `null` / 空字符串 → 视为"refresh 失败，要求重新登录"，
 ///   原 401 [DioException] 被原样向上抛（`DioHttpClient` → `UnauthorizedException`）；
-/// * `refreshToken()` 自己抛异常 → 同上，原 401 抛出（refresh 自己抛的异常会进 [logger.warn]）；
+/// * `refreshToken()` 自己抛异常 → 同上，原 401 抛出（refresh 自己抛的异常会进 \[logger.warn\]）；
 /// * 重发后请求**仍然 401** → 直接抛出该 401（避免无限循环；本拦截器对一次请求最多只重试一次）。
 class AuthRefreshInterceptor extends Interceptor {
   AuthRefreshInterceptor({
