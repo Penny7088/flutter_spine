@@ -1,7 +1,6 @@
 name: flutter_spine_example
 description: "End-to-end demo of flutter_spine (Effect bus / VM base / Scaffold series / lint / test toolkit)."
 version: 0.1.0
-publish_to: none
 
 environment:
   sdk: ^3.5.3

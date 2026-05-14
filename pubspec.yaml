@@ -4,7 +4,7 @@ version: 0.1.0
 homepage: https://github.com/Penny7088/flutter_arch_river_pod
 repository: https://github.com/Penny7088/flutter_arch_river_pod.git
 issue_tracker: https://github.com/Penny7088/flutter_arch_river_pod/issues
-documentation: https://github.com/Penny7088/flutter_arch_river_pod/tree/main/example
+documentation: https://github.com/Penny7088/flutter_arch_river_pod/ARCHITECTURE.md
 
 environment:
   sdk: ^3.5.3
