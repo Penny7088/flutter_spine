@@ -6,10 +6,6 @@ import '../../data/task.dart';
 import '../status_picker/status_picker_sheet.dart';
 import 'tasks_vm.dart';
 
-/// Tab 子页：[AppTabChildScaffold] 包 [PagedListView]。
-///
-/// * `source: TasksVm` 让本 Tab 只接 TasksVm 发的 effect（避免别 Tab 串台）；
-/// * 没自己的 Scaffold/AppBar——父页 [HomePage] 已经提供。
 class TasksTab extends ConsumerWidget {
   const TasksTab({super.key});
 
@@ -20,6 +16,7 @@ class TasksTab extends ConsumerWidget {
       child: PagedListView<Task>(
         provider: tasksVmProvider,
         controllerProvider: tasksVmProvider.notifier,
+        firstLoading: const SkeletonList(),
         itemBuilder: (ctx, task, _) => _TaskTile(
           task: task,
           onPickStatus: () => _pickStatus(ctx, ref, task),
@@ -57,9 +54,11 @@ class _TaskTile extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(child: Text(task.id.substring(2))),
       title: Text(task.title),
-      subtitle: Text(task.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(task.description,
+          maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: ActionChip(
-        label: Text(task.status.label, style: theme.textTheme.labelMedium),
+        label:
+            Text(task.status.label, style: theme.textTheme.labelMedium),
         onPressed: onPickStatus,
       ),
     );

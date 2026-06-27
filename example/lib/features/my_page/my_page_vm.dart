@@ -10,11 +10,18 @@ class MyPageVm extends ViewModelNotifier<MyPageState> {
   @override
   MyPageState build() => const MyPageState();
 
-  void increment() => update((s) => s.copyWith(counter: s.counter + 1));
+  void increment() {
+    emit(const EffectHaptic(HapticKind.light));
+    update((s) => s.copyWith(counter: s.counter + 1));
+  }
 
-  void decrement() => update((s) => s.copyWith(counter: s.counter - 1));
+  void decrement() {
+    emit(const EffectHaptic(HapticKind.light));
+    update((s) => s.copyWith(counter: s.counter - 1));
+  }
 
   Future<void> resetWithToast() async {
+    emit(const EffectHaptic(HapticKind.medium));
     update((s) => s.copyWith(counter: 0));
     emit(const EffectShowToast('Reset done', level: ToastLevel.success));
   }
