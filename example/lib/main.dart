@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spine/flutter_spine.dart';
 
 import 'app/router.dart';
+import 'storage/in_memory_storage.dart';
 
 /// flutter_spine 启动入口 —— `FlutterSpine.runApp` 一行接管：
 ///
@@ -38,20 +39,18 @@ void main() {
       logger: PrettyAppLogger(),
 
       // ── 3. Storage（KeyValueStorage）─────────────────────────────────────
-      // 需要先 `await Hive.initFlutter()`，再 `openBox`。
-      // 由于 HiveStorage 构造需要异步，FlutterSpineConfig 支持 FutureOr 工厂：
+      // 提供后：themeModeProvider 自动持久化主题选择；业务通过
+      // ref.read(keyValueStorageProvider) 存取任意 KV。
       //
-      // storage: () async {
-      //   await Hive.initFlutter();
-      //   final box = await Hive.openBox('app_prefs');
-      //   return HiveStorage.fromBox(box);
-      // },
+      // 这里用纯 Dart 的 InMemoryStorage 演示（页面刷新即重置）；
+      // 生产环境替换为 HiveStorage：
       //
-      // 注入后：
-      //   - themeModeProvider 自动持久化主题选择
-      //   - 业务层通过 ref.read(keyValueStorageProvider) 存取任意 KV
-      // 本 demo 暂不放真实的 Hive 初始化（避免引入 platform 依赖），
-      // Settings 页已用 keyValueStorageProvider 演示了读写。
+      //   storage: () async {
+      //     await Hive.initFlutter();
+      //     final box = await Hive.openBox('app_prefs');
+      //     return HiveStorage.fromBox(box);
+      //   },
+      storage: () => InMemoryStorage(),
 
       // ── 4. HTTP（DioHttpConfig）──────────────────────────────────────────
       // 仅当业务需要走网络时才配。配完后业务层通过以下方式使用：
