@@ -7,6 +7,12 @@ import '../../data/task_repository.dart';
 class TasksVm extends AutoDisposeAsyncNotifier<PagedState<Task>>
     with PagedNotifierMixinNoArg<Task> {
   @override
+  Future<PagedState<Task>> build() async {
+    ref.keepAlive();
+    return super.build();
+  }
+
+  @override
   int get pageSize => 20;
 
   @override

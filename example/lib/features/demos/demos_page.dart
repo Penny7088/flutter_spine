@@ -7,7 +7,6 @@ class DemosPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return AppPageScaffold(
       title: 'Demos',
       body: ListView(
@@ -43,16 +42,23 @@ class DemosPage extends StatelessWidget {
             subtitle: 'WsTopicRouter / subscribe / unsubscribe with fake channel',
             onTap: () => context.push('/demos/ws'),
           ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'This page uses AppPageScaffold.\n'
-                'AppListPageScaffold is demonstrated in the Tasks tab '
-                '(via PagedListView inside AppTabChildScaffold).',
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
+          _DemoTile(
+            icon: Icons.alt_route,
+            title: 'Effect Routing',
+            subtitle: 'Global (Shell) vs Local (Page) — source filter demo',
+            onTap: () => context.push('/demos/effect-routing'),
+          ),
+          _DemoTile(
+            icon: Icons.person,
+            title: 'My Page (Counter)',
+            subtitle: 'ViewModelNotifier + EffectHaptic',
+            onTap: () => context.push('/my-page'),
+          ),
+          _DemoTile(
+            icon: Icons.settings,
+            title: 'Settings',
+            subtitle: 'ThemeModeNotifier + KeyValueStorage + AppLogger',
+            onTap: () => context.push('/settings'),
           ),
         ],
       ),

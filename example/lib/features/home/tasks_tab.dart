@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_spine/flutter_spine.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/task.dart';
 import '../status_picker/status_picker_sheet.dart';
@@ -11,9 +12,21 @@ class TasksTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return AppTabChildScaffold(
-      source: TasksVm,
-      child: PagedListView<Task>(
+    return AppPageScaffold(
+      title: 'Tasks',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_outlined),
+          tooltip: 'Settings',
+          onPressed: () => context.push('/settings'),
+        ),
+      ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/new'),
+        tooltip: 'New task',
+        child: const Icon(Icons.add),
+      ),
+      body: PagedListView<Task>(
         provider: tasksVmProvider,
         controllerProvider: tasksVmProvider.notifier,
         firstLoading: const SkeletonList(),

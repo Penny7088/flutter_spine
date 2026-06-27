@@ -5,20 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/task.dart';
 import 'stats_vm.dart';
 
-/// Tab 子页：[AppTabChildScaffold] + watch [statsVmProvider]，按 AsyncValue 三态切换。
 class StatsTab extends ConsumerWidget {
   const StatsTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncStats = ref.watch(statsVmProvider);
-    return AppTabChildScaffold(
-      source: StatsVm,
-      child: RefreshIndicator(
+    return AppPageScaffold(
+      title: 'Stats',
+
+      body: RefreshIndicator(
         onRefresh: () => ref.read(statsVmProvider.notifier).refresh(),
         child: asyncStats.when(
-          loading: () => const _Loading(),
-          error: (e, _) => _Error(error: e),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
           data: (stats) => _StatsBody(stats: stats),
         ),
       ),
@@ -58,23 +58,4 @@ class _StatsBody extends StatelessWidget {
       ],
     );
   }
-}
-
-class _Loading extends StatelessWidget {
-  const _Loading();
-  @override
-  Widget build(BuildContext context) =>
-      const Center(child: CircularProgressIndicator());
-}
-
-class _Error extends StatelessWidget {
-  const _Error({required this.error});
-  final Object error;
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('Error: $error'),
-        ),
-      );
 }
