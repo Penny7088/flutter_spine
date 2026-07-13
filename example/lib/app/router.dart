@@ -1,8 +1,10 @@
 import 'package:go_router/go_router.dart';
 
+import '../features/demos/demo_app_list_page.dart';
 import '../features/demos/demo_effect_routing_page.dart';
 import '../features/demos/demo_effects_page.dart';
 import '../features/demos/demo_extensions_page.dart';
+import '../features/demos/demo_paged_list_page.dart';
 import '../features/demos/demo_raw_page.dart';
 import '../features/demos/demo_skeleton_page.dart';
 import '../features/demos/demo_ws_page.dart';
@@ -55,6 +57,14 @@ GoRouter buildRouter() => GoRouter(
                 GoRoute(
                   path: 'effect-routing',
                   builder: (_, __) => const DemoEffectRoutingPage(),
+                ),
+                GoRoute(
+                  path: 'paged-list',
+                  builder: (_, __) => const DemoPagedListPage(),
+                ),
+                GoRoute(
+                  path: 'app-list',
+                  builder: (_, __) => const DemoAppListPage(),
                 ),
               ],
             ),

@@ -304,6 +304,13 @@ AppException _mapDioException(DioException e, StackTrace st) {
         return NetworkException(message: innerMsg, raw: e, stackTrace: st);
       }
       return UnknownException(message: innerMsg, raw: e, stackTrace: st);
+
+    default:
+      return UnknownException(
+        message: e.message ?? 'Unknown HTTP error',
+        raw: e,
+        stackTrace: st,
+      );
   }
 }
 

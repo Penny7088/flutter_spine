@@ -49,6 +49,8 @@ class AppListPageScaffold<T> extends StatelessWidget {
     this.noMore,
     this.padding,
     this.physics,
+    this.scrollViewBuilder,
+    this.enableLoadMore = true,
     this.header,
     this.footer,
     this.easyRefreshController,
@@ -90,6 +92,8 @@ class AppListPageScaffold<T> extends StatelessWidget {
   // ── List 布局 ─────────────────────────────────────────────────────────
   final EdgeInsetsGeometry? padding;
   final ScrollPhysics? physics;
+  final PagedScrollViewBuilder? scrollViewBuilder;
+  final bool enableLoadMore;
   final Header? header;
   final Footer? footer;
   final EasyRefreshController? easyRefreshController;
@@ -156,6 +160,8 @@ class AppListPageScaffold<T> extends StatelessWidget {
         noMore: noMore,
         padding: padding,
         physics: physics,
+        scrollViewBuilder: scrollViewBuilder,
+        enableLoadMore: enableLoadMore,
         header: header,
         footer: footer,
         easyRefreshController: easyRefreshController,

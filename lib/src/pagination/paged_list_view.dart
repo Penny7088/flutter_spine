@@ -8,6 +8,35 @@ import '../presentation/page_state/loading_view.dart';
 import 'paged_notifier_mixin.dart';
 import 'paged_state.dart';
 
+/// 自定义滚动视图构建器。
+///
+/// 传入时，[PagedListView] 把列表内容作为 [sliverChild]（单个 [SliverList]），
+/// 由你自由组合到 [CustomScrollView] 或其他滚动容器中，方便插入 `SliverAppBar`、
+/// `SliverToBoxAdapter` 等额外 sliver。
+///
+/// [physics] 是 EasyRefresh 注入的 [ScrollPhysics]，需要传给你的滚动容器。
+///
+/// ```dart
+/// PagedListView<Item>(
+///   provider: p,
+///   controllerProvider: p.notifier,
+///   itemBuilder: (ctx, item, i) => ItemCard(item),
+///   scrollViewBuilder: (ctx, physics, sliverChild) => CustomScrollView(
+///     physics: physics,
+///     slivers: [
+///       SliverAppBar(title: Text('Orders')),
+///       sliverChild,
+///       SliverToBoxAdapter(child: SizedBox(height: 80)),
+///     ],
+///   ),
+/// )
+/// ```
+typedef PagedScrollViewBuilder = Widget Function(
+  BuildContext context,
+  ScrollPhysics physics,
+  Widget sliverChild,
+);
+
 /// 通用分页列表视图。内置 EasyRefresh + 五态状态机：
 ///
 /// ```
@@ -43,6 +72,8 @@ class PagedListView<T> extends ConsumerStatefulWidget {
     this.padding,
     this.physics,
     this.shrinkWrap = false,
+    this.scrollViewBuilder,
+    this.enableLoadMore = true,
     this.easyRefreshController,
     this.header,
     this.footer,
@@ -80,6 +111,14 @@ class PagedListView<T> extends ConsumerStatefulWidget {
   final EdgeInsetsGeometry? padding;
   final ScrollPhysics? physics;
   final bool shrinkWrap;
+
+  /// 自定义滚动容器。null → 保持现有 EasyRefresh + ListView 行为。
+  final PagedScrollViewBuilder? scrollViewBuilder;
+
+  /// 是否启用上拉加载更多。默认 `true`。
+  ///
+  /// 设为 `false` 时隐藏加载更多 footer，只保留下拉刷新。
+  final bool enableLoadMore;
 
   /// EasyRefresh header / footer 定制（null 时使用全局默认）。
   final Header? header;
@@ -169,15 +208,19 @@ class _PagedListViewState<T> extends ConsumerState<PagedListView<T>> {
     final items = state.items;
 
     // 计算 itemCount：items + moreError 条 + noMore 条（各最多1）
-    final extraBottom = (state.moreError != null || (!state.hasMore)) ? 1 : 0;
+    final extraBottom = widget.enableLoadMore && (state.moreError != null || (!state.hasMore)) ? 1 : 0;
     final itemCount = items.length + extraBottom;
+
+    if (widget.scrollViewBuilder != null) {
+      return _buildSliverRefreshable(items, state, itemCount);
+    }
 
     return EasyRefresh(
       controller: _controller,
       header: widget.header,
       footer: widget.footer,
       onRefresh: _onRefresh,
-      onLoad: state.hasMore ? _onLoad : null,
+      onLoad: widget.enableLoadMore && state.hasMore ? _onLoad : null,
       child: widget.separatorBuilder != null
           ? ListView.separated(
               padding: widget.padding,
@@ -197,6 +240,47 @@ class _PagedListViewState<T> extends ConsumerState<PagedListView<T>> {
               itemCount: itemCount,
               itemBuilder: (ctx, i) => _buildItem(ctx, i, items, state),
             ),
+    );
+  }
+
+  Widget _buildSliverRefreshable(
+    List<T> items,
+    PagedState<T> state,
+    int itemCount,
+  ) {
+    final sliverBody = _buildSliverBody(items, state, itemCount);
+    return EasyRefresh.builder(
+      controller: _controller,
+      header: widget.header,
+      footer: widget.footer,
+      onRefresh: _onRefresh,
+      onLoad: widget.enableLoadMore && state.hasMore ? _onLoad : null,
+      childBuilder: (ctx, physics) {
+        return widget.scrollViewBuilder!(ctx, physics, sliverBody);
+      },
+    );
+  }
+
+  Widget _buildSliverBody(
+    List<T> items,
+    PagedState<T> state,
+    int itemCount,
+  ) {
+    if (widget.separatorBuilder != null) {
+      return SliverList.separated(
+        itemCount: itemCount,
+        separatorBuilder: (ctx, i) =>
+            i < items.length - 1
+                ? widget.separatorBuilder!(ctx, i)
+                : const SizedBox.shrink(),
+        itemBuilder: (ctx, i) => _buildItem(ctx, i, items, state),
+      );
+    }
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (ctx, i) => _buildItem(ctx, i, items, state),
+        childCount: itemCount,
+      ),
     );
   }
 

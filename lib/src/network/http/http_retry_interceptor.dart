@@ -146,6 +146,7 @@ class RetryInterceptor extends Interceptor {
       DioExceptionType.badCertificate => false,
       DioExceptionType.unknown => _looksLikeNetworkError(err),
       DioExceptionType.cancel => false,
+      _ => false,
     };
   }
 

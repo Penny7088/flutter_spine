@@ -214,6 +214,31 @@ final tasksVmProvider =
 
 UI 侧直接用 `PagedListView<Task>` 把 `provider` / `controllerProvider` 传进去，refresh / loadMore / 三态全自动。
 
+**`scrollViewBuilder`** 参数让你把列表嵌入 `CustomScrollView`，自由组合 `SliverAppBar`、
+`SliverToBoxAdapter` 等额外 sliver：
+
+```dart
+PagedListView<Task>(
+  provider: tasksVmProvider,
+  controllerProvider: tasksVmProvider.notifier,
+  firstLoading: const SkeletonList(),
+  itemBuilder: (ctx, task, _) => TaskTile(task),
+  scrollViewBuilder: (ctx, physics, sliverChild) => CustomScrollView(
+    physics: physics,
+    slivers: [
+      SliverAppBar(title: const Text('Pinned'), pinned: true),
+      SliverToBoxAdapter(child: SomeHeader()),
+      sliverChild,
+      SliverToBoxAdapter(child: SomeFooter()),
+    ],
+  ),
+)
+```
+
+**`enableLoadMore`** 设为 `false` 时隐藏上拉加载更多 footer，只保留下拉刷新（适合全量加载的列表）。
+
+`AppListPageScaffold` 同样透传这两个参数。
+
 ---
 
 ### 5. 三大原语逐条解析
@@ -278,7 +303,7 @@ if (r is Ok<T>) { /* 后续动作，比如 emit toast + pop */ }
 | Scaffold | 适用 |
 |---|---|
 | `AppPageScaffold` | 普通业务页面 |
-| `AppListPageScaffold` | 列表页（含分页 + 三态槽位） |
+| `AppListPageScaffold` | 列表页（含分页 + 三态槽位 + `scrollViewBuilder` / `enableLoadMore`） |
 | `AppFormPageScaffold` | 表单页（底部固定按钮、自动避让键盘） |
 | `AppBottomSheetScaffold` | 半屏 sheet 内容 |
 | `AppTabChildScaffold` | TabBarView 子项 |
