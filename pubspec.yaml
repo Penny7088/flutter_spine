@@ -1,6 +1,6 @@
 name: flutter_spine
 description: "Shared infrastructure for Flutter apps — MVVM base classes, effect bus, scaffold suite, network layer, and error model."
-version: 0.1.1
+version: 0.1.2
 homepage: https://github.com/Penny7088/flutter_arch_river_pod
 repository: https://github.com/Penny7088/flutter_arch_river_pod.git
 issue_tracker: https://github.com/Penny7088/flutter_arch_river_pod/issues
@@ -41,4 +41,4 @@ dev_dependencies:
   stream_channel: ^2.1.2
 
 executables:
-  flutter_spine: flutter_spine.dart
+  flutter_spine: flutter_spine
