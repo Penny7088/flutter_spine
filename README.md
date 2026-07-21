@@ -689,7 +689,8 @@ runApp(ProviderScope(
     wsConfigBuilderProvider.overrideWithValue(
       (uri) => WsClientConfig(
         url: uri,
-        headers: {'X-App-Id': 'wallet'},
+        // 动态 headers —— 每次 connect/重连实时调用，token 过期后无需重建 config
+        headersProvider: () => {'Authorization': 'Bearer ${session.token}'},
         heartbeatInterval: const Duration(seconds: 25),
         heartbeatPayload: {'op': 'ping'},
         baseReconnectDelay: const Duration(seconds: 1),
@@ -704,12 +705,18 @@ runApp(ProviderScope(
           unsubscribeFrameBuilder:
               (t) => {'op': 'unsubscribe', 'channel': t},
         ),
+        // 可选：auth 过期自动刷新 token（基于 close code 检测）
+        isAuthCloseCode: (code) => code == 4001,
+        onAuthExpired: () async => ref.read(authRepoProvider).refresh(),
       ),
     ),
   ],
   child: const App(),
 ));
 ```
+
+> **`headersProvider` vs 旧版 `headers`**：`headersProvider` 是一个回调，每次 connect / 重连时调用取最新值。
+> 旧版 `headers` 是静态 Map，token 过期后重连会带旧 token。建议所有新代码用 `headersProvider`。
 
 #### 2.2 业务侧使用：topic 订阅 API（推荐）
 
@@ -765,7 +772,92 @@ ws.isSubscribed('order_update');   // bool
 ws.subscribedTopics;               // Set<String>，只读快照
 ```
 
-#### 2.3 业务侧使用：raw messages 流（不需要 topic 路由时）
+#### 2.3 多业务 Gateway 模式（`BaseWsGateway` + `StreamProvider`）
+
+多个业务模块（Market / Asset / Swap）各自一套 WS 协议时，三层架构避免重复：
+
+```
+StreamProvider.autoDispose.family    ← 页面级生命周期（自动 unsubscribe）
+  └── MarketWsGateway extends BaseWsGateway   ← 业务协议适配
+        └── wsClientProvider(marketWsUri)     ← 连接级生命周期（共享连接池）
+              └── DefaultWsClient             ← 连接/心跳/重连/引用计数
+```
+
+**层 1：`BaseWsGateway`**（`flutter_spine` 核心提供）
+
+```dart
+abstract class BaseWsGateway {
+  final WsClient ws;
+  const BaseWsGateway(this.ws);
+
+  // 透传：连接状态、生命周期、订阅查询
+  WsConnectionState get currentState => ws.currentState;
+  Stream<WsConnectionState> get connectionState => ws.connectionState;
+  Future<void> connect() => ws.connect();
+  Future<void> disconnect({int? code, String? reason}) => ws.disconnect(...);
+  bool isSubscribed(String topic) => ws.isSubscribed(topic);
+  Set<String> get subscribedTopics => ws.subscribedTopics;
+}
+```
+
+**层 2：业务 Gateway**（Market 模块实现，~60 行）
+
+```dart
+class MarketWsGateway extends BaseWsGateway {
+  MarketWsGateway(super.ws);
+
+  Stream<PriceUpdate> subscribePrice(String chain, String addr) =>
+      ws.subscribe('price-info|$chain|$addr', decoder: PriceUpdate.fromRaw);
+
+  Future<void> unsubscribePrice(String chain, String addr) =>
+      ws.unsubscribe('price-info|$chain|$addr');
+}
+```
+
+**层 3：`StreamProvider.autoDispose.family`**（自动生命周期管理）
+
+```dart
+final priceStreamProvider = StreamProvider.autoDispose
+    .family<PriceUpdate, (String chain, String addr)>(
+  (ref, params) {
+    final (chain, addr) = params;
+    final gw = ref.watch(marketGatewayProvider);
+    ref.onDispose(() => gw.unsubscribePrice(chain, addr));  // ← 自动退订
+    return gw.subscribePrice(chain, addr);
+  },
+);
+```
+
+页面只需 `ref.watch(priceStreamProvider(('eip155:1', 'native')))`。页面退出时 Widget 从树中移除
+→ `autoDispose` 触发 → `ref.onDispose` 回调 → `unsubscribePrice` → 引用计数归零 → 发 unsubscribe 帧。
+**不需要手动管理任何 StreamSubscription 或 unsubscribe 调用。**
+
+完整示例见 [`example/lib/features/demos/demo_market_ws/`](./example/lib/features/demos/demo_market_ws/)。
+
+#### 2.4 Token 过期自动刷新
+
+`WsClientConfig` 内建的 token 刷新机制——对标 HTTP 层的 `AuthRefreshInterceptor`：
+
+| 配置字段 | 作用 |
+|----------|------|
+| `headersProvider` | 每次 connect / 重连时实时获取最新 token |
+| `isAuthCloseCode` | 判断 close code 是否为 auth 过期（如 4001） |
+| `onAuthExpired` | token 刷新回调（单飞保证——并发只调一次） |
+
+**流程**：
+
+```
+Server close (code=4001)
+  → _onChannelDone → _handleRemoteClose
+    → closeCode == 4001 && isAuthCloseCode(4001)
+      → onAuthExpired()                     ← 单飞刷新
+        → 成功 → reset reconnect counter → _doConnect（带新 token）
+        → 失败 → WsFailed
+```
+
+> 未配置 `onAuthExpired` 时，auth close code 会走普通重连逻辑（但旧 token 会导致持续失败）。
+
+#### 2.5 raw messages 流（不需要 topic 路由时）
 
 不配 `topicRouter`，或纯粹想看全量帧时（调试 / 服务端只推一种消息）：
 
@@ -783,7 +875,7 @@ Future<List<Order>> build() async {
 > ⚠️ 即使配了 `topicRouter`，`messages` 流仍接收**全量**消息（不做路由过滤）——
 > 路由只影响 `subscribe()` 返回的子流。两套 API 互不干扰。
 
-#### 2.4 UI 显示连接指示器
+#### 2.6 UI 显示连接指示器
 
 ```dart
 class WsIndicator extends ConsumerWidget {
@@ -810,36 +902,41 @@ final _wsStateProvider = StreamProvider.family<WsConnectionState, Uri>(
 );
 ```
 
-#### 2.5 状态机
+#### 2.7 状态机
 
 ```
 WsIdle ──connect()──▶ WsConnecting ──ready──▶ WsConnected
-                          │                         │ remote close / error
-                          │ ready 失败              ▼
-                          └──────────▶ WsReconnecting(attempt, nextDelay)
-                                               │
-                                               │ 退避结束，重试 connect
-                                               ▼
-                                      （回到 WsConnecting，循环）
-                                               │ 达到 maxReconnectAttempts
-                                               ▼
-                                          WsFailed(error)
+                          │                         │
+                          │ ready 失败              │ remote close
+                          ▼                         ▼
+                     WsReconnecting(attempt,    closeCode 检查:
+                      nextDelay)                ├─ 1000/1001 → WsDisconnected（不再重连）
+                          │                     ├─ auth code (4001) → onAuthExpired()
+                          │ 退避结束              │     ├─ 成功 → 重连（带新 token）
+                          ▼                     │     └─ 失败 → WsFailed
+                    （回到 WsConnecting，循环）   └─ 其余 → WsReconnecting
+                          │
+                          │ 达到 maxReconnectAttempts
+                          ▼
+                     WsFailed(error)
 
 任何状态 ──disconnect()──▶ WsDisconnected   （不再自动重连）
 ```
 
-#### 2.6 内部行为
+#### 2.8 内部行为
 
 | 行为 | 默认 | 自定义 |
 |---|---|---|
 | 心跳间隔 | 25s | `heartbeatInterval`；`Duration.zero` 关闭 |
 | 心跳载荷 | `{"op":"ping"}` | `heartbeatPayload`；`Map`/`List` 自动 jsonEncode |
+| 连接 headers | 无 | `headersProvider`：每次 connect/重连实时获取 |
+| token 刷新 | 无 | `onAuthExpired` + `isAuthCloseCode`：单飞刷新 + 自动重连 |
 | 重连退避 | base × 2^(attempt-1)，封顶 maxDelay | `baseReconnectDelay` / `maxReconnectDelay` |
 | 退避抖动 | ±20% | `reconnectJitterRatio`；0 关闭 |
 | 最大重连次数 | 无限 | `maxReconnectAttempts`；达到后 `WsFailed` |
 | 握手超时 | 10s | `connectTimeout` |
 
-#### 2.7 测试 WsClient
+#### 2.9 测试 WsClient
 
 注入 fake `WsChannelFactory`——见 [`test/network/ws/default_ws_client_test.dart`](./test/network/ws/default_ws_client_test.dart) 的 `_FakeWsChannel` 实现，~80 行可全套验证状态机/重连/心跳。topic 订阅 API 的测试见 [`test/network/ws/ws_topic_subscription_test.dart`](./test/network/ws/ws_topic_subscription_test.dart)。
 
@@ -864,7 +961,7 @@ source.last.simulateRemoteClose();        // 触发自动重连
 | **UI** | `src/ui/` | `AppDefaultAppBar` + 6 个 `AppXxxScaffold` |
 | Error | `src/error/` | `sealed AppException` 层级 + `safeApiCall` + `Result<T>` |
 | **HTTP** | `src/network/http/` | `HttpClient` + `DioHttpClient` + 3 内置 Interceptor + provider |
-| **WebSocket** | `src/network/ws/` | `WsClient` + `DefaultWsClient`（重连/心跳/状态机/topic 订阅）+ `WsTopicRouter` + provider |
+| **WebSocket** | `src/network/ws/` | `WsClient` + `DefaultWsClient`（重连/心跳/状态机/topic 订阅/token 刷新）+ `BaseWsGateway` + `WsTopicRouter` + provider |
 | Network | `src/network/` | `ChannelClient`（MethodChannel 薄封装） |
 | Pagination | `src/pagination/` | `PagedState` + `PagedNotifierMixin` + `PagedListView` |
 | Filter | `src/filter/` | `FilterNotifier` 过滤基类 |
@@ -879,7 +976,7 @@ source.last.simulateRemoteClose();        // 触发自动重连
 
 ## 业务包接入模板（一行 API）
 
-`flutter_spine` 提供 `FlutterCore.runApp` 一行启动——**半包**：本类只接管
+`flutter_spine` 提供 `FlutterSpine.runApp` 一行启动——**半包**：本类只接管
 `ProviderScope` + `EffectListener`，`MaterialApp` 100% 由业务控制。
 
 ### 极简——零配置（直接能跑）
@@ -889,7 +986,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spine/flutter_spine.dart';
 
 void main() {
-  FlutterCore.runApp(
+  FlutterSpine.runApp(
     // 不传 config 也行：默认 effectHandler = MaterialDefaultEffectHandler()
     app: (ctx) => MaterialApp(home: const HomePage()),
   );
@@ -906,8 +1003,8 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:hive/hive.dart';
 
 void main() {
-  FlutterCore.runApp(
-    config: FlutterCoreConfig(
+  FlutterSpine.runApp(
+    config: FlutterSpineConfig(
       // 1) 业务 toast/dialog —— 不需要再写一个 EffectHandler 子类
       effectHandler: MaterialDefaultEffectHandler(
         toast: (ctx, msg, lvl) {
@@ -956,7 +1053,7 @@ void main() {
 }
 ```
 
-### `FlutterCoreConfig` 字段
+### `FlutterSpineConfig` 字段
 
 | 字段 | 类型 | 默认值 / 缺省行为 |
 |---|---|---|
@@ -972,7 +1069,7 @@ void main() {
 
 ### 接入自检
 
-`FlutterCore.runApp` 在 DEBUG 下会自动打印一份"接入完成度"清单到控制台：
+`FlutterSpine.runApp` 在 DEBUG 下会自动打印一份"接入完成度"清单到控制台：
 
 ```
 ╔═════════════════════════════════════════════════════════
@@ -989,13 +1086,13 @@ void main() {
 ╚═════════════════════════════════════════════════════════
 ```
 
-想在 app 里随时看一眼当前接入状态？把 `FlutterCoreDiagnosticsBanner` 塞到任意页面：
+想在 app 里随时看一眼当前接入状态？把 `FlutterSpineDiagnosticsBanner` 塞到任意页面：
 
 ```dart
 Scaffold(
   body: Stack(children: [
     YourPageContent(),
-    const FlutterCoreDiagnosticsBanner(), // DEBUG only，release 编译为 SizedBox
+    const FlutterSpineDiagnosticsBanner(), // DEBUG only，release 编译为 SizedBox
   ]),
 )
 ```

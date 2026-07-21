@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spine/flutter_spine.dart';
 
 import 'app/router.dart';
+import 'features/demos/demo_asset_ws/asset_topic.dart';
+import 'features/demos/demo_asset_ws/asset_topic_router.dart';
+import 'features/demos/demo_market_ws/market_topic.dart';
+import 'features/demos/demo_market_ws/market_topic_router.dart';
+import 'features/demos/demo_swap_ws/swap_topic.dart';
+import 'features/demos/demo_swap_ws/swap_topic_router.dart';
 import 'storage/in_memory_storage.dart';
 
 /// flutter_spine 启动入口 —— `FlutterSpine.runApp` 一行接管：
@@ -14,6 +20,28 @@ import 'storage/in_memory_storage.dart';
 ///   * kDebugMode 下打印 [BootstrapAudit] 接入清单
 ///
 /// MaterialApp 的 theme / darkTheme / router / locale 等完全留给业务控制。
+
+/// 共享的 WebSocket 配置工厂。
+///
+/// 所有业务模块共用相同的 auth / 心跳 / 重连策略，
+/// 只需在各自的 [WsTopicRouter] 中定义不同的 topic 协议即可。
+///
+/// 如果有模块需要不同的策略（如某个模块不刷新 token），
+/// 直接在该模块的 if 分支中写独立配置，不调本函数即可。
+WsClientConfig _sharedWsConfig(Uri uri, {WsTopicRouter? topicRouter}) {
+  return WsClientConfig(
+    url: uri,
+    topicRouter: topicRouter,
+    heartbeatPayload: {'op': 'ping'},
+    headersProvider: () => {'Authorization': 'Bearer demo-token-12345'},
+    isAuthCloseCode: (code) => code == 4001,
+    onAuthExpired: () async {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      return 'new-token-refreshed';
+    },
+  );
+}
+
 void main() {
   // =========================================================================
   // FlutterSpineConfig — 渐进式配置：字段全部可选，不配也能跑。
@@ -80,30 +108,38 @@ void main() {
       // ),
 
       // ── 5. WebSocket ────────────────────────────────────────────────────
-      // 不传则 wsClientProvider 用"无 topicRouter + 默认参数"的 builder，
-      // 业务层依然可以创建连接，但 subscribe/unsubscribe 不可用。
-      // 开启 topic router 后，路由请看 DemoWsPage（/demos/ws）。
-      // ws: (uri) => WsClientConfig(
-      //   url: uri,
-      //   heartbeatInterval: Duration(seconds: 30),
-      //   maxReconnectAttempts: 10,
-      //   topicRouter: WsTopicRouter(
-      //     topicExtractor: (raw) =>
-      //         (jsonDecode(raw as String) as Map)['type'] as String?,
-      //     subscribeFrameBuilder: (t) => {'op': 'subscribe', 'channel': t},
-      //     unsubscribeFrameBuilder: (t) => {'op': 'unsubscribe', 'channel': t},
-      //   ),
-      // ),
+      // `ws` 提供全局默认的 WsClientConfig 工厂，所有 wsClientProvider(uri)
+      // 都从这里取基础配置。
+      //
+      // 各业务模块（Market / Asset / Swap 等）如需专用配置（topicRouter、
+      // headersProvider、onAuthExpired 等），通过下面的 extraOverrides
+      // 按 URI 覆盖 wsConfigBuilderProvider 即可。
+      ws: (uri) => WsClientConfig(
+        url: uri,
+        heartbeatPayload: {'op': 'ping'},
+      ),
 
-      // ── 6. Extra Observers ──────────────────────────────────────────────
-      // 追加业务自定义 ProviderObserver（埋点 / 性能监控等）。
-      // extraObservers: [AnalyticsObserver()],
-
-      // ── 7. Extra Overrides ──────────────────────────────────────────────
-      // 业务自定义 provider 覆写（如注入测试环境配置）。
-      // extraOverrides: [
-      //   appConfigProvider.overrideWithValue(AppConfig.dev()),
-      // ],
+      // ── 6. Extra Overrides ──────────────────────────────────────────────
+      extraOverrides: [
+        // 按 URI 为不同业务模块注入其专属的 topicRouter。
+        // 共享的 auth / 心跳 / 重连策略由 _sharedWsConfig 统一管理，
+        // 每个模块只需指定自己的 WsTopicRouter 即可。
+        wsConfigBuilderProvider.overrideWithValue((uri) {
+          if (uri == marketWsUri) {
+            return _sharedWsConfig(uri, topicRouter: marketTopicRouter);
+          }
+          if (uri == assetWsUri) {
+            return _sharedWsConfig(uri, topicRouter: assetTopicRouter);
+          }
+          if (uri == swapWsUri) {
+            return _sharedWsConfig(uri, topicRouter: swapTopicRouter);
+          }
+          return WsClientConfig(
+            url: uri,
+            heartbeatPayload: {'op': 'ping'},
+          );
+        }),
+      ],
     ),
 
     // ── MaterialApp ─────────────────────────────────────────────────────────

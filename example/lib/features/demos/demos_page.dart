@@ -43,6 +43,18 @@ class DemosPage extends StatelessWidget {
             onTap: () => context.push('/demos/ws'),
           ),
           _DemoTile(
+            icon: Icons.show_chart,
+            title: 'Market WebSocket Gateway',
+            subtitle: 'BaseWsGateway / MarketTopic / auth refresh / close code handling',
+            onTap: () => context.push('/demos/market-ws'),
+          ),
+          _DemoTile(
+            icon: Icons.autorenew,
+            title: 'WS Lifecycle (autoDispose)',
+            subtitle: 'StreamProvider.autoDispose.family / auto unsubscribe on pop',
+            onTap: () => context.push('/demos/market-ws-lifecycle'),
+          ),
+          _DemoTile(
             icon: Icons.alt_route,
             title: 'Effect Routing',
             subtitle: 'Global (Shell) vs Local (Page) — source filter demo',

@@ -56,6 +56,7 @@ export 'src/network/ws/ws_client.dart';
 export 'src/network/ws/ws_connection_state.dart';
 export 'src/network/ws/default_ws_client.dart';
 export 'src/network/ws/ws_providers.dart';
+export 'src/network/ws/base_ws_gateway.dart';
 
 // ── Pagination ─────────────────────────────────────────────────────────────
 export 'src/pagination/paged_state.dart';

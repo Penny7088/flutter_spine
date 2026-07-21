@@ -8,6 +8,8 @@ import '../features/demos/demo_paged_list_page.dart';
 import '../features/demos/demo_raw_page.dart';
 import '../features/demos/demo_skeleton_page.dart';
 import '../features/demos/demo_ws_page.dart';
+import '../features/demos/demo_market_ws/demo_market_ws_page.dart';
+import '../features/demos/demo_market_ws/demo_market_lifecycle_page.dart';
 import '../features/demos/demos_page.dart';
 import '../features/home/home_page.dart';
 import '../features/home/stats_tab.dart';
@@ -53,6 +55,14 @@ GoRouter buildRouter() => GoRouter(
                 GoRoute(
                   path: 'ws',
                   builder: (_, __) => const DemoWsPage(),
+                ),
+                GoRoute(
+                  path: 'market-ws',
+                  builder: (_, __) => const DemoMarketWsPage(),
+                ),
+                GoRoute(
+                  path: 'market-ws-lifecycle',
+                  builder: (_, __) => const DemoMarketLifecyclePage(),
                 ),
                 GoRoute(
                   path: 'effect-routing',

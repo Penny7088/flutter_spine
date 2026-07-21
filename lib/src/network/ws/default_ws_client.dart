@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../error/app_exception.dart';
@@ -13,6 +14,8 @@ import 'ws_connection_state.dart';
 /// * 状态机（idle → connecting → connected ⇄ reconnecting → disconnected/failed）
 /// * 心跳保活
 /// * 指数退避 + 抖动 自动重连
+/// * token 过期自动刷新 + 重连（需配置 [WsClientConfig.onAuthExpired]）
+/// * 正常关闭码（1000/1001）不触发重连
 /// * topic 订阅 / 引用计数 / 重连后自动重订阅（需 [WsClientConfig.topicRouter]）
 /// * 业务可注入 [WsChannelFactory] 来替换底层 channel（测试用 fake channel）
 ///
@@ -47,6 +50,9 @@ class DefaultWsClient implements WsClient {
 
   /// topic → 共享 broadcast controller + 引用计数
   final Map<String, _TopicEntry> _topics = {};
+
+  /// 单飞 auth 刷新 future。多个并发 auth close 共用此 future。
+  Future<String?>? _inflightAuthRefresh;
 
   // ── public ────────────────────────────────────────────────────────────────
 
@@ -264,9 +270,83 @@ class DefaultWsClient implements WsClient {
 
   void _onChannelDone() {
     if (_userClosed || _disposed) return;
-    _logger?.info('[ws] channel closed by remote — scheduling reconnect');
-    _scheduleReconnect(
+    // 在清理前捕获 channel，用于读取 close code / reason
+    final closedChannel = _channel;
+    _stopHeartbeat();
+    _channelSub?.cancel();
+    _channelSub = null;
+    _channel = null;
+    unawaited(_handleRemoteClose(closedChannel));
+  }
+
+  Future<void> _handleRemoteClose(WebSocketChannel? closedChannel) async {
+    final closeCode = closedChannel?.closeCode;
+    final closeReason = closedChannel?.closeReason;
+
+    _logger?.info('[ws] channel closed by remote, code=$closeCode');
+
+    if (_userClosed || _disposed) return;
+
+    // 正常关闭码（1000 normal, 1001 going away）——不重连
+    if (closeCode == 1000 || closeCode == 1001) {
+      _emitState(WsDisconnected(code: closeCode, reason: closeReason));
+      return;
+    }
+
+    // auth 过期 close code → 刷新 token 后重连
+    final isAuth = _config.isAuthCloseCode;
+    if (isAuth != null &&
+        isAuth(closeCode) &&
+        _config.onAuthExpired != null) {
+      await _doAuthRefreshAndReconnect();
+      return;
+    }
+
+    // 其余情况：标准重连
+    _doScheduleReconnect(
       const NetworkException(message: 'Connection closed by remote'),
+    );
+  }
+
+  Future<void> _doAuthRefreshAndReconnect() async {
+    _logger?.info('[ws] auth close code detected, refreshing token...');
+
+    String? newToken;
+    try {
+      // 单飞：多个并发 auth close 只触发一次 refresh
+      newToken = await (_inflightAuthRefresh ??= _config.onAuthExpired!()
+          .whenComplete(() => _inflightAuthRefresh = null));
+    } catch (e, st) {
+      _logger?.warn('[ws] onAuthExpired threw: $e\n$st');
+      if (!_stateController.isClosed) {
+        _emitState(WsFailed(
+          NetworkException(
+            message: 'Auth refresh failed: $e',
+            raw: e,
+            stackTrace: st,
+          ),
+        ));
+      }
+      return;
+    }
+
+    if (newToken == null || newToken.isEmpty) {
+      _logger?.info('[ws] onAuthExpired returned null — entering WsFailed');
+      _emitState(
+        const WsFailed(
+          NetworkException(
+            message: 'Auth refresh returned null, re-login required',
+          ),
+        ),
+      );
+      return;
+    }
+
+    _logger?.info('[ws] token refreshed, reconnecting...');
+    // 重置重连计数——token 问题不是网络问题
+    _reconnectAttempt = 0;
+    _doScheduleReconnect(
+      const NetworkException(message: 'Reconnecting after auth refresh'),
     );
   }
 
@@ -275,7 +355,10 @@ class DefaultWsClient implements WsClient {
     _channelSub?.cancel();
     _channelSub = null;
     _channel = null;
+    _doScheduleReconnect(reason);
+  }
 
+  void _doScheduleReconnect(AppException reason) {
     if (_userClosed || _disposed) return;
 
     final maxAttempts = _config.maxReconnectAttempts;
@@ -387,8 +470,16 @@ class _TopicEntry {
 }
 
 WebSocketChannel _defaultFactory(WsClientConfig config) {
-  return WebSocketChannel.connect(
-    config.url,
+  final headers = config.headersProvider?.call();
+  if (headers == null) {
+    return WebSocketChannel.connect(
+      config.url,
+      protocols: config.protocols,
+    );
+  }
+  return IOWebSocketChannel.connect(
+    config.url.toString(),
     protocols: config.protocols,
+    headers: headers,
   );
 }

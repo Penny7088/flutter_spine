@@ -17,6 +17,8 @@ typedef WsChannelFactory = WebSocketChannel Function(WsClientConfig config);
 /// * 提供 [send] 发消息（支持 String / List<int> / Map / List 自动 JSON 编码）；
 /// * 周期性发心跳保活；
 /// * 失败时按指数退避自动重连；
+/// * 支持 [WsClientConfig.onAuthExpired] token 过期后自动刷新并重连
+///   （基于 close code 检测 + 单飞 token 刷新）；
 /// * 可选：按 topic 路由消息（[subscribe] / [unsubscribe]），
 ///   配合 [WsClientConfig.topicRouter] 使用，**不**配置则禁用、保留 raw [messages] 流。
 ///
@@ -189,7 +191,7 @@ class WsClientConfig {
   const WsClientConfig({
     required this.url,
     this.protocols,
-    this.headers = const {},
+    this.headersProvider,
     this.connectTimeout = const Duration(seconds: 10),
     this.heartbeatInterval = const Duration(seconds: 25),
     this.heartbeatPayload = '{"op":"ping"}',
@@ -198,6 +200,8 @@ class WsClientConfig {
     this.maxReconnectAttempts = -1,
     this.reconnectJitterRatio = 0.2,
     this.topicRouter,
+    this.onAuthExpired,
+    this.isAuthCloseCode,
   });
 
   /// 完整 ws/wss URL。
@@ -206,8 +210,13 @@ class WsClientConfig {
   /// WebSocket 子协议（Sec-WebSocket-Protocol）。
   final Iterable<String>? protocols;
 
-  /// HTTP 升级握手时附带的额外头（部分平台支持）。
-  final Map<String, dynamic> headers;
+  /// HTTP 升级握手时附带的动态 headers 提供者。
+  ///
+  /// 每次 [WsClient.connect] / 自动重连时调用此回调取最新 headers，
+  /// 实现 token 过期后重连自动携带新 token，无需重建 [WsClientConfig]。
+  ///
+  /// `null` = 不带附加 headers（默认）。
+  final Map<String, dynamic> Function()? headersProvider;
 
   /// 握手超时。超时视为连接失败，进入重连流程。
   final Duration connectTimeout;
@@ -232,4 +241,23 @@ class WsClientConfig {
   /// topic 路由配置。`null` = 禁用 topic 订阅（[WsClient.subscribe] 抛 [StateError]），
   /// 业务直接消费 [WsClient.messages] 全量流。
   final WsTopicRouter? topicRouter;
+
+  /// auth 过期时的 token 刷新回调。
+  ///
+  /// 当服务端关闭连接且 close code 被 [isAuthCloseCode] 判定为 auth 过期时，
+  /// [DefaultWsClient] 会调用此回调获取新 token，成功后自动重连。
+  /// 支持**单飞**保证：多个并发的 auth close 事件只触发一次刷新。
+  ///
+  /// * 返回 `null` / 空字符串：视为刷新失败，状态进入 [WsFailed]，停止重连；
+  /// * 抛异常：同上，异常信息记日志后进入 [WsFailed]。
+  ///
+  /// 未配置时 auth 过期会走普通重连逻辑（可能无限重连失败）。
+  final Future<String?> Function()? onAuthExpired;
+
+  /// 判断 close code 是否为 auth 过期（如 4001、1008 等自定义码）。
+  ///
+  /// `null` = 不做 auth 检测，所有远端关闭统一走普通重连。
+  /// `closeCode` 为 `null` 时表示无法获取 close code（平台不支持或未完成关闭帧交换），
+  /// 此时谓词通常应返回 `false`。
+  final bool Function(int? closeCode)? isAuthCloseCode;
 }

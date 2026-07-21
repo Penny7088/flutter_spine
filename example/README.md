@@ -1,6 +1,6 @@
-# flutter_core_example
+# flutter_spine example
 
-`flutter_spine` 的端到端示例。一个 ~13 个文件的"任务管理"小应用，把 P1-P5 全部串起来跑一遍。
+`flutter_spine` 的端到端示例。一个 ~13 个文件的"任务管理"小应用 + 3 个 WebSocket Demo 模块，覆盖 MVVM、HTTP、WebSocket 全栈。
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -78,6 +78,18 @@ class Bad extends StatelessWidget {
 | `lib/features/new_task/new_task_page.dart` | `AppFormPageScaffold`：键盘自适应 + 底部按钮 |
 | `lib/features/status_picker/status_picker_sheet.dart` | `AppBottomSheetScaffold`：drag handle + close button + radio list |
 
+### WebSocket Demo 模块（`features/demos/`）
+
+| 目录 | 演示什么 |
+|------|----------|
+| `demo_market_ws/` | `MarketWsGateway extends BaseWsGateway` — 多业务 Gateway 模式、topic 编解码、auth 刷新、StreamProvider.autoDispose 生命周期管理 |
+| `demo_asset_ws/` | `AssetWsGateway` — 余额/质押订阅，与 Market 共享同一套 `WsClient` 基础设施 |
+| `demo_swap_ws/` | `SwapWsGateway` — 报价/订单状态订阅，展示第三个业务模块的接入方式 |
+| `demo_ws_page.dart` | `WsTopicRouter` 底层 API 演示（subscribe / unsubscribe 手控） |
+
+三个 Gateway 模块都在 `main.dart` 的 `FlutterSpineConfig.extraOverrides` 中按 URI 注册，
+通过一个 `_sharedWsConfig` 工厂共享 auth/心跳/重连策略，每个模块只覆写自己的 `topicRouter`。
+
 ## 测试模板（直接抄）
 
 | 文件 | 学到什么 |
@@ -90,8 +102,9 @@ class Bad extends StatelessWidget {
 
 ## 故事线（推荐阅读顺序）
 
-1. 先看 `main.dart` 知道整个 app 怎么 bootstrap；
+1. 先看 `main.dart` 知道整个 app 怎么 bootstrap（含 `FlutterSpineConfig` WS 配置）；
 2. 再看 `effect_handler.dart` 理解 effect → UI 的翻译表；
 3. 看 `tasks_vm.dart` 理解"业务侧只 patch + emit，不碰 BuildContext"；
 4. 看 `new_task_vm.dart` 理解"提交流程的 4 行就够：onStart / onSuccess / onFailure / 收尾 emit"；
-5. 最后跑测试：`flutter test` —— 看 100ms 内 6 个 case 全绿。
+5. 看 `demo_market_ws/main.dart` 中的 WS 注册方式 → `market_stream_providers.dart` 的 autoDispose 模式 → `market_ws_gateway.dart` 的 Gateway 实现；
+6. 最后跑测试：`flutter test` —— 看 100ms 内 6 个 case 全绿。浏览 `/demos` 路由下的所有 Demo 页面。

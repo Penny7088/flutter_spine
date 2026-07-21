@@ -19,6 +19,8 @@ class _FakeWsChannel extends StreamChannelMixin<dynamic>
   final _outgoing = StreamController<dynamic>();
   final _ready = Completer<void>();
   bool _closed = false;
+  int? _closeCode;
+  String? _closeReason;
 
   void completeReady() {
     if (!_ready.isCompleted) _ready.complete();
@@ -30,7 +32,9 @@ class _FakeWsChannel extends StreamChannelMixin<dynamic>
 
   void receiveMessage(dynamic msg) => _incoming.add(msg);
 
-  void simulateRemoteClose() {
+  void simulateRemoteClose({int? code, String? reason}) {
+    _closeCode = code;
+    _closeReason = reason;
     if (!_incoming.isClosed) _incoming.close();
   }
 
@@ -48,9 +52,9 @@ class _FakeWsChannel extends StreamChannelMixin<dynamic>
   @override
   String? get protocol => null;
   @override
-  int? get closeCode => _closed ? 1000 : null;
+  int? get closeCode => _closeCode;
   @override
-  String? get closeReason => null;
+  String? get closeReason => _closeReason;
 }
 
 class _FakeSink implements WebSocketSink {
@@ -366,17 +370,270 @@ void main() {
       await expectLater(client.connect(), throwsA(isA<StateError>()));
     });
   });
+
+  group('DefaultWsClient — close code', () {
+    test('正常关闭 1000 → WsDisconnected，不重连', () {
+      fakeAsync((async) {
+        final source = _ChannelSource();
+        final client = DefaultWsClient(
+          _config(baseReconnect: const Duration(milliseconds: 100)),
+          channelFactory: source.factory,
+          random: Random(0),
+        );
+
+        client.connect();
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsConnected>());
+
+        source.last.simulateRemoteClose(code: 1000);
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsDisconnected>());
+
+        // 等够重连时间窗，确认不重连
+        async.elapse(const Duration(milliseconds: 500));
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsDisconnected>());
+        expect(source.channels.length, 1);
+
+        client.dispose();
+      });
+    });
+
+    test('正常关闭 1001 → WsDisconnected，不重连', () {
+      fakeAsync((async) {
+        final source = _ChannelSource();
+        final client = DefaultWsClient(
+          _config(baseReconnect: const Duration(milliseconds: 100)),
+          channelFactory: source.factory,
+          random: Random(0),
+        );
+
+        client.connect();
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+
+        source.last.simulateRemoteClose(code: 1001);
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsDisconnected>());
+
+        async.elapse(const Duration(milliseconds: 500));
+        async.flushMicrotasks();
+        expect(source.channels.length, 1);
+
+        client.dispose();
+      });
+    });
+
+    test('自定义 close code（非 1000/1001）→ 正常重连', () {
+      fakeAsync((async) {
+        final source = _ChannelSource();
+        final client = DefaultWsClient(
+          _config(baseReconnect: const Duration(milliseconds: 100)),
+          channelFactory: source.factory,
+          random: Random(0),
+        );
+
+        client.connect();
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsConnected>());
+
+        source.last.simulateRemoteClose(code: 1006);
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsReconnecting>());
+
+        async.elapse(const Duration(milliseconds: 100));
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+
+        expect(client.currentState, isA<WsConnected>());
+        expect(source.channels.length, 2);
+
+        client.dispose();
+      });
+    });
+  });
+
+  group('DefaultWsClient — auth 刷新', () {
+    test('auth close code → 刷新 token 成功 → 重连', () {
+      fakeAsync((async) {
+        int refreshCallCount = 0;
+        final source = _ChannelSource();
+        final client = DefaultWsClient(
+          _authConfig(
+            baseReconnect: const Duration(milliseconds: 100),
+            isAuthCloseCode: (code) => code == 4001,
+            onAuthExpired: () async {
+              refreshCallCount++;
+              return 'new-token-xyz';
+            },
+          ),
+          channelFactory: source.factory,
+          random: Random(0),
+        );
+
+        client.connect();
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsConnected>());
+
+        source.last.simulateRemoteClose(code: 4001);
+        // 刷新回调需要 microtask 推进
+        async.flushMicrotasks();
+        async.flushMicrotasks();
+
+        expect(refreshCallCount, 1);
+        expect(client.currentState, isA<WsReconnecting>());
+        expect((client.currentState as WsReconnecting).attempt, 1);
+
+        // 推进重连
+        async.elapse(const Duration(milliseconds: 100));
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+
+        expect(client.currentState, isA<WsConnected>());
+        expect(source.channels.length, 2);
+
+        client.dispose();
+      });
+    });
+
+    test('auth close code → 刷新返回 null → WsFailed', () {
+      fakeAsync((async) {
+        final source = _ChannelSource();
+        final client = DefaultWsClient(
+          _authConfig(
+            isAuthCloseCode: (code) => code == 4001,
+            onAuthExpired: () async => null,
+          ),
+          channelFactory: source.factory,
+          random: Random(0),
+        );
+
+        client.connect();
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+
+        source.last.simulateRemoteClose(code: 4001);
+        async.flushMicrotasks();
+        async.flushMicrotasks();
+
+        expect(client.currentState, isA<WsFailed>());
+
+        // 确认不再重连
+        async.elapse(const Duration(milliseconds: 500));
+        async.flushMicrotasks();
+        expect(client.currentState, isA<WsFailed>());
+        expect(source.channels.length, 1);
+
+        client.dispose();
+      });
+    });
+
+    test('auth close code → 刷新抛异常 → WsFailed', () {
+      fakeAsync((async) {
+        final source = _ChannelSource();
+        final client = DefaultWsClient(
+          _authConfig(
+            isAuthCloseCode: (code) => code == 4001,
+            onAuthExpired: () async => throw Exception('refresh network error'),
+          ),
+          channelFactory: source.factory,
+          random: Random(0),
+        );
+
+        client.connect();
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+
+        source.last.simulateRemoteClose(code: 4001);
+        async.flushMicrotasks();
+        async.flushMicrotasks();
+
+        expect(client.currentState, isA<WsFailed>());
+
+        async.elapse(const Duration(milliseconds: 500));
+        async.flushMicrotasks();
+        expect(source.channels.length, 1);
+
+        client.dispose();
+      });
+    });
+
+    test('无 onAuthExpired 时 auth close code 走普通重连', () {
+      fakeAsync((async) {
+        final source = _ChannelSource();
+        final client = DefaultWsClient(
+          _authConfig(
+            baseReconnect: const Duration(milliseconds: 100),
+            isAuthCloseCode: (code) => code == 4001,
+            onAuthExpired: null, // 没配 refresh
+          ),
+          channelFactory: source.factory,
+          random: Random(0),
+        );
+
+        client.connect();
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+
+        source.last.simulateRemoteClose(code: 4001);
+        async.flushMicrotasks();
+
+        expect(client.currentState, isA<WsReconnecting>());
+
+        async.elapse(const Duration(milliseconds: 100));
+        async.flushMicrotasks();
+        source.last.completeReady();
+        async.flushMicrotasks();
+
+        expect(client.currentState, isA<WsConnected>());
+        expect(source.channels.length, 2);
+
+        client.dispose();
+      });
+    });
+  });
 }
 
 /// 助手：连接并完成握手。
 Future<void> _connectOk(DefaultWsClient client, _ChannelSource source) async {
   final f = client.connect();
-  // 等到 factory 真正被调用——Dart async 函数何时执行 body 是个细节，靠 poll 最稳。
   while (source.channels.isEmpty) {
     await Future<void>.delayed(Duration.zero);
   }
   source.last.completeReady();
   await f;
-  // 等 broadcast stream 把 Connected 派发给所有 listener。
   await Future<void>.delayed(Duration.zero);
 }
+
+WsClientConfig _authConfig({
+  Duration heartbeat = Duration.zero,
+  Duration baseReconnect = const Duration(milliseconds: 100),
+  Duration maxReconnect = const Duration(seconds: 5),
+  Duration connectTimeout = const Duration(seconds: 1),
+  int maxAttempts = -1,
+  required Future<String?> Function()? onAuthExpired,
+  bool Function(int? closeCode)? isAuthCloseCode,
+}) =>
+    WsClientConfig(
+      url: Uri.parse('wss://test.invalid/x'),
+      heartbeatInterval: heartbeat,
+      baseReconnectDelay: baseReconnect,
+      maxReconnectDelay: maxReconnect,
+      connectTimeout: connectTimeout,
+      maxReconnectAttempts: maxAttempts,
+      reconnectJitterRatio: 0,
+      onAuthExpired: onAuthExpired,
+      isAuthCloseCode: isAuthCloseCode,
+    );
