@@ -45,4 +45,4 @@ class MarketTopic {
 ///
 /// [marketGatewayProvider] 通过 [wsClientProvider] 按此 URI 创建共享连接，
 /// [FlutterSpineConfig.extraOverrides] 中按此 URI 注入 Market 专用配置。
-final marketWsUri = Uri.parse('wss://market-api.example/feed');
+final marketWsUri = Uri.parse('wss://demo/ws/market');

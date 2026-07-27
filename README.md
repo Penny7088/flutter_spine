@@ -311,6 +311,17 @@ if (r is Ok<T>) { /* 后续动作，比如 emit toast + pop */ }
 
 每个 Scaffold 都接受 `source: VmType` + `onEffect: (ctx, e) => ...`，自动挂 `EffectListener`。
 
+> **`handleDefaultEffects` 分层策略**：避免内置 effect 被多个 Listener 重复处理：
+>
+> | EffectListener 位置 | `handleDefaults` | 职责 |
+> |---------------------|-----------------|------|
+> | 根级（`FlutterSpine.runApp`） | `false` | 不处理内置 effect |
+> | `AppPageScaffold` | `true` | 统一处理 navigate/toast/pop/dialog/haptic |
+> | `AppTabChildScaffold` | `false` | 只处理 `onEffect` 业务自定义 |
+> | `AppBottomSheetScaffold` | `false` | 只处理 `onEffect` 业务自定义 |
+>
+> 父路由容器页面应设 `handleDefaultEffects: false`，避免处理子页面 VM 的 effect。
+
 **6.2 Page 端样板**
 
 ```dart
@@ -954,7 +965,7 @@ WsIdle ──connect()──▶ WsConnecting ──ready──▶ WsConnected
 | 心跳间隔 | 25s | `heartbeatInterval`；`Duration.zero` 关闭 |
 | 心跳载荷 | `{"op":"ping"}` | `heartbeatPayload`；`Map`/`List` 自动 jsonEncode |
 | 连接 headers | 无 | `headersProvider`：每次 connect/重连实时获取 |
-| token 刷新 | 无 | `onAuthExpired` + `isAuthCloseCode`：单飞刷新 + 自动重连 |
+| token 刷新 | 无 | `onAuthExpired` + `isAuthCloseCode`（close code 路径）+ `isConnectAuthError`（连接拒绝路径）：单飞刷新 + 自动重连 |
 | URL 容错 | 无 | `http→ws` / `https→wss` 自动修正 + `:0` port 自动移除 |
 | 重连退避 | base × 2^(attempt-1)，封顶 maxDelay | `baseReconnectDelay` / `maxReconnectDelay` |
 | 退避抖动 | ±20% | `reconnectJitterRatio`；0 关闭 |

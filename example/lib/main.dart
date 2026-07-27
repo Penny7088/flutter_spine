@@ -89,7 +89,7 @@ void main() {
       // 按 URI 覆盖 wsConfigBuilderProvider 即可。
       ws: (uri) => WsClientConfig(
         url: uri,
-        heartbeatPayload: {'op': 'ping'},
+        heartbeatPayload: {'type': 'ping'},
       ),
 
       // ── 6. Extra Overrides ──────────────────────────────────────────────

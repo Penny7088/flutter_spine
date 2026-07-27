@@ -9,6 +9,7 @@ class DemosPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppPageScaffold(
       title: 'Demos',
+      handleDefaultEffects: false,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

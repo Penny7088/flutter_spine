@@ -29,6 +29,13 @@ class WsModuleConfig {
     this.queryParamsProvider,
     this.onAuthExpired,
     this.isAuthCloseCode,
+    this.isConnectAuthError,
+    this.protocols,
+    this.connectTimeout,
+    this.baseReconnectDelay,
+    this.maxReconnectDelay,
+    this.maxReconnectAttempts,
+    this.reconnectJitterRatio,
     this.heartbeatPayload,
     this.heartbeatInterval,
   });
@@ -43,6 +50,13 @@ class WsModuleConfig {
   final Map<String, String> Function()? queryParamsProvider;
   final Future<String?> Function()? onAuthExpired;
   final bool Function(int?)? isAuthCloseCode;
+  final bool Function(Object error)? isConnectAuthError;
+  final Iterable<String>? protocols;
+  final Duration? connectTimeout;
+  final Duration? baseReconnectDelay;
+  final Duration? maxReconnectDelay;
+  final int? maxReconnectAttempts;
+  final double? reconnectJitterRatio;
   final Object? heartbeatPayload;
   final Duration? heartbeatInterval;
 
@@ -55,6 +69,13 @@ class WsModuleConfig {
       queryParamsProvider: queryParamsProvider,
       onAuthExpired: onAuthExpired,
       isAuthCloseCode: isAuthCloseCode,
+      isConnectAuthError: isConnectAuthError,
+      protocols: protocols,
+      connectTimeout: connectTimeout ?? const Duration(seconds: 10),
+      baseReconnectDelay: baseReconnectDelay ?? const Duration(seconds: 1),
+      maxReconnectDelay: maxReconnectDelay ?? const Duration(seconds: 30),
+      maxReconnectAttempts: maxReconnectAttempts ?? -1,
+      reconnectJitterRatio: reconnectJitterRatio ?? 0.2,
       heartbeatPayload: heartbeatPayload,
       heartbeatInterval: heartbeatInterval ?? Duration.zero,
     );
@@ -70,6 +91,13 @@ class WsModuleConfig {
       queryParamsProvider: queryParamsProvider ?? sharedConfig.queryParamsProvider,
       onAuthExpired: onAuthExpired ?? sharedConfig.onAuthExpired,
       isAuthCloseCode: isAuthCloseCode ?? sharedConfig.isAuthCloseCode,
+      isConnectAuthError: isConnectAuthError ?? sharedConfig.isConnectAuthError,
+      protocols: protocols ?? sharedConfig.protocols,
+      connectTimeout: connectTimeout ?? sharedConfig.connectTimeout,
+      baseReconnectDelay: baseReconnectDelay ?? sharedConfig.baseReconnectDelay,
+      maxReconnectDelay: maxReconnectDelay ?? sharedConfig.maxReconnectDelay,
+      maxReconnectAttempts: maxReconnectAttempts ?? sharedConfig.maxReconnectAttempts,
+      reconnectJitterRatio: reconnectJitterRatio ?? sharedConfig.reconnectJitterRatio,
       heartbeatPayload: heartbeatPayload ?? sharedConfig.heartbeatPayload,
       heartbeatInterval: heartbeatInterval ?? sharedConfig.heartbeatInterval,
     );

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
+import 'package:logger/logger.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -235,6 +237,21 @@ class DefaultWsClient implements WsClient {
       );
     } catch (e, st) {
       _logger?.warn('[ws] connect failed: $e');
+      // 连接级 auth 错误检测——HTTP 401 / 403 拒绝 WebSocket 升级握手
+      if (_config.isConnectAuthError != null &&
+          _config.isConnectAuthError!(e) &&
+          _config.onAuthExpired != null) {
+        _logger?.info('[ws] connect auth error detected, refreshing...');
+        final newToken = await _safeRefreshToken();
+        if (newToken != null && newToken.isNotEmpty) {
+          // 不重置 _reconnectAttempt——连接路径的 token 刷新可能仍失败，
+          // 让 maxReconnectAttempts 正常累积，避免无限 auth-refresh 循环。
+          _doScheduleReconnect(const NetworkException(
+            message: 'Reconnecting after connect auth refresh',
+          ));
+          return;
+        }
+      }
       _scheduleReconnect(
         NetworkException(message: e.toString(), raw: e, stackTrace: st),
       );
@@ -311,31 +328,25 @@ class DefaultWsClient implements WsClient {
   Future<void> _doAuthRefreshAndReconnect() async {
     _logger?.info('[ws] auth close code detected, refreshing token...');
 
-    String? newToken;
-    try {
-      // 单飞：多个并发 auth close 只触发一次 refresh
-      newToken = await (_inflightAuthRefresh ??= _config.onAuthExpired!()
-          .whenComplete(() => _inflightAuthRefresh = null));
-    } catch (e, st) {
-      _logger?.warn('[ws] onAuthExpired threw: $e\n$st');
-      if (!_stateController.isClosed) {
-        _emitState(WsFailed(
-          NetworkException(
-            message: 'Auth refresh failed: $e',
-            raw: e,
-            stackTrace: st,
-          ),
-        ));
-      }
-      return;
-    }
-
-    if (newToken == null || newToken.isEmpty) {
+    final newToken = await _safeRefreshToken();
+    if (newToken == null) {
       _logger?.info('[ws] onAuthExpired returned null — entering WsFailed');
       _emitState(
         const WsFailed(
           NetworkException(
             message: 'Auth refresh returned null, re-login required',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (newToken.isEmpty) {
+      _logger?.info('[ws] onAuthExpired returned empty — entering WsFailed');
+      _emitState(
+        const WsFailed(
+          NetworkException(
+            message: 'Auth refresh returned empty, re-login required',
           ),
         ),
       );
@@ -348,6 +359,18 @@ class DefaultWsClient implements WsClient {
     _doScheduleReconnect(
       const NetworkException(message: 'Reconnecting after auth refresh'),
     );
+  }
+
+  /// 安全的单飞 token 刷新——复用 [_inflightAuthRefresh]，
+  /// 同时用于 close-code 路径和 connect 失败路径。
+  Future<String?> _safeRefreshToken() async {
+    try {
+      return await (_inflightAuthRefresh ??= _config.onAuthExpired!()
+          .whenComplete(() => _inflightAuthRefresh = null));
+    } catch (e, st) {
+      _logger?.warn('[ws] onAuthExpired threw: $e\n$st');
+      return null;
+    }
   }
 
   void _scheduleReconnect(AppException reason) {
@@ -471,39 +494,50 @@ class _TopicEntry {
 
 /// 默认 channel 工厂：将 [WsClientConfig] 转换为 [WebSocketChannel]。
 ///
-/// 处理顺序（不可调换）：
-/// 1. 合并动态 query params —— 必须在 scheme/port 修正之前，
-///    因为 `Uri.replace(queryParameters:)` 在某些 SDK 版本可能引入 `:0` port；
-/// 2. scheme 容错 —— `http` → `ws`，`https` → `wss`；
-/// 3. port `:0` 兜底 —— 修复 SDK bug 或用户误传。正常 URL 的 port 是 443/80，
-///    不会被此步误清。
+/// 所有 URL 转换使用纯字符串操作，不依赖 `Uri.replace()`——
+/// 避免 Dart SDK 在 `replace(queryParameters:)` 时引入 `:0` port 的 bug。
 WebSocketChannel _defaultFactory(WsClientConfig config) {
   final headers = config.headersProvider?.call();
   final queryParams = config.queryParamsProvider?.call();
 
-  Uri effectiveUri = config.url;
+  final rawUrl = config.url.toString();
+  String url = rawUrl;
+
+  debugPrint('[WS] ── _defaultFactory ──');
+  debugPrint('[WS]   raw: $rawUrl');
 
   // ── 1. query params ────────────────────────────────────────────────────
   if (queryParams != null && queryParams.isNotEmpty) {
-    final merged = Map<String, String>.from(effectiveUri.queryParameters)
-      ..addAll(queryParams);
-    effectiveUri = effectiveUri.replace(queryParameters: merged);
+    final sep = config.url.hasQuery ? '&' : '?';
+    final queryStr = queryParams.entries
+        .map((e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    url = '$url$sep$queryStr';
+    debugPrint('[WS]   +query: $queryStr');
   }
 
   // ── 2. scheme 容错 ─────────────────────────────────────────────────────
-  if (effectiveUri.scheme == 'http') {
-    effectiveUri = effectiveUri.replace(scheme: 'ws');
-  } else if (effectiveUri.scheme == 'https') {
-    effectiveUri = effectiveUri.replace(scheme: 'wss');
+  if (url.startsWith('https://')) {
+    url = url.replaceFirst('https://', 'wss://');
+    debugPrint('[WS]   scheme: https → wss');
+  } else if (url.startsWith('http://')) {
+    url = url.replaceFirst('http://', 'ws://');
+    debugPrint('[WS]   scheme: http → ws');
   }
 
   // ── 3. port :0 兜底 ────────────────────────────────────────────────────
-  if (effectiveUri.port == 0) {
-    effectiveUri = effectiveUri.replace(port: null);
+  if (url.contains('/:0/')) {
+    url = url.replaceFirst('/:0/', '/');
+    debugPrint('[WS]   port: removed :0');
   }
 
+  debugPrint('[WS]   final: $url');
+  debugPrint('[WS]   headers: ${headers != null ? '${headers.length} pairs' : 'none'}');
+  debugPrint('[WS] ──────────────────');
+
   return IOWebSocketChannel.connect(
-    effectiveUri,
+    url,
     protocols: config.protocols,
     headers: headers,
   );

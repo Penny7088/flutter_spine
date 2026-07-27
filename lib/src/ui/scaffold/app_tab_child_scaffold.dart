@@ -31,7 +31,7 @@ class AppTabChildScaffold extends StatefulWidget {
     required this.child,
     this.source,
     this.onEffect,
-    this.handleDefaultEffects = true,
+    this.handleDefaultEffects = false,
     this.keepAlive = true,
   });
 

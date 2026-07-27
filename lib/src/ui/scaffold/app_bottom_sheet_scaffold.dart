@@ -51,7 +51,7 @@ class AppBottomSheetScaffold extends StatelessWidget {
     this.heightFactor,
     this.source,
     this.onEffect,
-    this.handleDefaultEffects = true,
+    this.handleDefaultEffects = false,
   }) : assert(
           title == null || titleWidget == null,
           'title 与 titleWidget 不能同时传',

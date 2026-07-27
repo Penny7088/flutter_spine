@@ -57,6 +57,7 @@ class FlutterSpine {
         observers: observers,
         child: Builder(
           builder: (ctx) => EffectListener(
+            handleDefaults: false,
             onEffect: (_, __) {},
             child: app(ctx),
           ),

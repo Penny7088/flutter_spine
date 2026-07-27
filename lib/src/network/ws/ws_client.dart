@@ -247,6 +247,7 @@ class WsClientConfig {
     this.topicRouter,
     this.onAuthExpired,
     this.isAuthCloseCode,
+    this.isConnectAuthError,
   });
 
   /// 完整 ws/wss URL。
@@ -317,4 +318,16 @@ class WsClientConfig {
   /// `closeCode` 为 `null` 时表示无法获取 close code（平台不支持或未完成关闭帧交换），
   /// 此时谓词通常应返回 `false`。
   final bool Function(int? closeCode)? isAuthCloseCode;
+
+  /// 连接级 auth 错误检测——处理 WebSocket 升级握手阶段被服务端
+  /// HTTP 401 / 403 拒绝的场景。
+  ///
+  /// 与 [isAuthCloseCode] 互补：[isAuthCloseCode] 处理已连接后服务端发送的 close frame，
+  /// 本字段处理连接建立阶段（[_doConnect]）的失败。
+  ///
+  /// 若返回 `true` 且配置了 [onAuthExpired]，则先刷新 token 再重连
+  /// （重置重连计数，使用新 token 重试）。
+  ///
+  /// `null` = 不做连接级 auth 检测，连接失败走标准重连逻辑。
+  final bool Function(Object error)? isConnectAuthError;
 }

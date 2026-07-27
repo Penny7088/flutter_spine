@@ -1,3 +1,17 @@
+## 0.2.3
+
+### Fixed
+- **`_defaultFactory` URL construction** — switched to pure string operations to avoid Dart SDK `Uri.replace()` port `:0` bug. Added scheme auto-correction (`http→ws`, `https→wss`) and port `:0` removal. Added step-by-step debug logging.
+- **`isConnectAuthError` missing from `WsModuleConfig`** — field was added to `WsClientConfig` but not propagated through `WsModuleConfig` constructor, `toConfig()`, and `toConfigWith()`, causing configuration loss when using `WsModuleRegistry`.
+- **`WsModuleConfig` missing reconnect fields** — `protocols`, `connectTimeout`, `baseReconnectDelay`, `maxReconnectDelay`, `maxReconnectAttempts`, `reconnectJitterRatio` were not in `WsModuleConfig`, preventing `sharedWsConfig` defaults from reaching the final `WsClientConfig`.
+- **Connect auth refresh infinite loop** — `_reconnectAttempt` was reset to 0 on every connect-level auth refresh, preventing `maxReconnectAttempts` from ever being reached.
+- **EffectListener double-dispatch** — root-level `EffectListener` now defaults to `handleDefaults: false`. `AppTabChildScaffold` and `AppBottomSheetScaffold` set `handleDefaultEffects: false`. Only `AppPageScaffold` processes built-in effects, eliminating duplicate navigation/toast/dialog triggers.
+- **DemosPage double-navigation (example)** — parent route container now sets `handleDefaultEffects: false` to prevent processing effects emitted by child routes' ViewModels.
+
+### Example
+- `ws_modules.dart` token extracted to `_currentToken` variable — `onAuthExpired` writes back refreshed token, `queryParamsProvider` reads it on each connect/reconnect.
+- `demo_market_ws_page.dart` refactored to use global `marketGatewayProvider` instead of self-built fake channel and hardcoded URL.
+
 ## 0.2.2
 
 ### Added
@@ -5,6 +19,7 @@
 - **`WsClientConfig.headersProvider`** — dynamic headers callback. Called on every connect / reconnect to fetch the latest token, eliminating the need to rebuild config after auth refresh.
 - **`WsClientConfig.queryParamsProvider`** — dynamic query string callback. Same pattern as `headersProvider`, for backends that pass auth tokens via URL query params (`?token=xxx`) instead of HTTP headers. Manual string concatenation avoids Dart SDK `Uri.replace()` port `:0` bug.
 - **`WsClientConfig.onAuthExpired` + `isAuthCloseCode`** — token expiry auto-refresh. When the server closes with an auth close code (e.g. 4001), `DefaultWsClient` calls `onAuthExpired` with single-flight guarantee, then reconnects with the new token. Unsuccessful refresh transitions to `WsFailed`.
+- **`WsClientConfig.isConnectAuthError`** — connection-level auth error detection. Handles HTTP 401/403 rejection during WebSocket upgrade handshake (complements `isAuthCloseCode` which handles post-connect close frames). Defined externally via predicate so backend-specific error formats are not hardcoded.
 - **Close code handling in `DefaultWsClient`** — normal close codes (1000, 1001) now transition to `WsDisconnected` without triggering auto-reconnect. All other close codes continue to trigger standard reconnect.
 - **Unified `IOWebSocketChannel` in `_defaultFactory`** — always uses `IOWebSocketChannel.connect()`, no longer implicitly switches between `WebSocketChannel.connect()` and `IOWebSocketChannel` based on parameter presence. Behavior is now consistent regardless of whether headers/queryParams are configured.
 - **`WsTopicRouter.simple()`** — factory constructor for standard pub/sub protocols where channel name equals topic name. Auto-generates `topicExtractor`, `subscribeFrameBuilder`, and `unsubscribeFrameBuilder` from a single `channelKey` parameter.
@@ -17,7 +32,7 @@
 - `_defaultFactory` no longer branches on parameter presence — always constructs `IOWebSocketChannel` for consistent behavior.
 
 ### Tests
-- 7 new test cases for close code handling and auth refresh (33 total in `test/network/ws/`).
+- 9 new test cases for close code handling, auth refresh, and connect-level auth detection (40 total in `test/network/ws/`).
 
 ### Example
 - **`demo_market_ws/`** — full `MarketWsGateway` implementation: topic encoding/decode (`MarketTopic`), protocol adapter (`marketTopicRouter`), Riverpod `StreamProvider.autoDispose.family` for automatic subscription lifecycle, and interactive lifecycle demo page.
