@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spine/flutter_spine.dart';
 
 import 'app/router.dart';
-import 'features/demos/demo_asset_ws/asset_topic.dart';
-import 'features/demos/demo_asset_ws/asset_topic_router.dart';
-import 'features/demos/demo_market_ws/market_topic.dart';
-import 'features/demos/demo_market_ws/market_topic_router.dart';
-import 'features/demos/demo_swap_ws/swap_topic.dart';
-import 'features/demos/demo_swap_ws/swap_topic_router.dart';
+import 'data/ws_modules.dart';
 import 'storage/in_memory_storage.dart';
 
 /// flutter_spine 启动入口 —— `FlutterSpine.runApp` 一行接管：
@@ -20,28 +15,6 @@ import 'storage/in_memory_storage.dart';
 ///   * kDebugMode 下打印 [BootstrapAudit] 接入清单
 ///
 /// MaterialApp 的 theme / darkTheme / router / locale 等完全留给业务控制。
-
-/// 共享的 WebSocket 配置工厂。
-///
-/// 所有业务模块共用相同的 auth / 心跳 / 重连策略，
-/// 只需在各自的 [WsTopicRouter] 中定义不同的 topic 协议即可。
-///
-/// 如果有模块需要不同的策略（如某个模块不刷新 token），
-/// 直接在该模块的 if 分支中写独立配置，不调本函数即可。
-WsClientConfig _sharedWsConfig(Uri uri, {WsTopicRouter? topicRouter}) {
-  return WsClientConfig(
-    url: uri,
-    topicRouter: topicRouter,
-    heartbeatPayload: {'op': 'ping'},
-    headersProvider: () => {'Authorization': 'Bearer demo-token-12345'},
-    isAuthCloseCode: (code) => code == 4001,
-    onAuthExpired: () async {
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      return 'new-token-refreshed';
-    },
-  );
-}
-
 void main() {
   // =========================================================================
   // FlutterSpineConfig — 渐进式配置：字段全部可选，不配也能跑。
@@ -121,24 +94,15 @@ void main() {
 
       // ── 6. Extra Overrides ──────────────────────────────────────────────
       extraOverrides: [
-        // 按 URI 为不同业务模块注入其专属的 topicRouter。
-        // 共享的 auth / 心跳 / 重连策略由 _sharedWsConfig 统一管理，
-        // 每个模块只需指定自己的 WsTopicRouter 即可。
-        wsConfigBuilderProvider.overrideWithValue((uri) {
-          if (uri == marketWsUri) {
-            return _sharedWsConfig(uri, topicRouter: marketTopicRouter);
-          }
-          if (uri == assetWsUri) {
-            return _sharedWsConfig(uri, topicRouter: assetTopicRouter);
-          }
-          if (uri == swapWsUri) {
-            return _sharedWsConfig(uri, topicRouter: swapTopicRouter);
-          }
-          return WsClientConfig(
-            url: uri,
-            heartbeatPayload: {'op': 'ping'},
-          );
-        }),
+        // 使用 WsModuleRegistry 替代 if-else 分支。
+        // 各模块的 topicRouter 通过 wsModules 列表注入，
+        // 共享的 auth / 心跳 / 重连策略由 sharedWsConfig 统一提供。
+        wsConfigBuilderProvider.overrideWithValue(
+          WsModuleRegistry.build(
+            modules: wsModules,
+            defaultConfig: sharedWsConfig,
+          ),
+        ),
       ],
     ),
 

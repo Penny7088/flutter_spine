@@ -469,23 +469,43 @@ class _TopicEntry {
   int refCount = 0;
 }
 
+/// 默认 channel 工厂：将 [WsClientConfig] 转换为 [WebSocketChannel]。
+///
+/// 处理顺序（不可调换）：
+/// 1. 合并动态 query params —— 必须在 scheme/port 修正之前，
+///    因为 `Uri.replace(queryParameters:)` 在某些 SDK 版本可能引入 `:0` port；
+/// 2. scheme 容错 —— `http` → `ws`，`https` → `wss`；
+/// 3. port `:0` 兜底 —— 修复 SDK bug 或用户误传。正常 URL 的 port 是 443/80，
+///    不会被此步误清。
 WebSocketChannel _defaultFactory(WsClientConfig config) {
   final headers = config.headersProvider?.call();
   final queryParams = config.queryParamsProvider?.call();
 
-  String effectiveUrl = config.url.toString();
+  Uri effectiveUri = config.url;
+
+  // ── 1. query params ────────────────────────────────────────────────────
   if (queryParams != null && queryParams.isNotEmpty) {
-    final sep = config.url.hasQuery ? '&' : '?';
-    final queryStr = queryParams.entries
-        .map((e) =>
-            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
-        .join('&');
-    effectiveUrl = '$effectiveUrl$sep$queryStr';
+    final merged = Map<String, String>.from(effectiveUri.queryParameters)
+      ..addAll(queryParams);
+    effectiveUri = effectiveUri.replace(queryParameters: merged);
+  }
+
+  // ── 2. scheme 容错 ─────────────────────────────────────────────────────
+  if (effectiveUri.scheme == 'http') {
+    effectiveUri = effectiveUri.replace(scheme: 'ws');
+  } else if (effectiveUri.scheme == 'https') {
+    effectiveUri = effectiveUri.replace(scheme: 'wss');
+  }
+
+  // ── 3. port :0 兜底 ────────────────────────────────────────────────────
+  if (effectiveUri.port == 0) {
+    effectiveUri = effectiveUri.replace(port: null);
   }
 
   return IOWebSocketChannel.connect(
-    effectiveUrl,
+    effectiveUri,
     protocols: config.protocols,
     headers: headers,
   );
 }
+

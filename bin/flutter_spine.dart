@@ -9,6 +9,7 @@ import 'package:flutter_spine/src/cli/commands/form_command.dart';
 import 'package:flutter_spine/src/cli/commands/page_command.dart';
 import 'package:flutter_spine/src/cli/commands/paged_list_command.dart';
 import 'package:flutter_spine/src/cli/commands/repo_command.dart';
+import 'package:flutter_spine/src/cli/commands/ws_gateway_command.dart';
 
 /// flutter_spine 代码脚手架。
 ///
@@ -39,7 +40,8 @@ Future<void> main(List<String> args) async {
     ..addCommand(RepoCommand())
     ..addCommand(EffectCommand())
     ..addCommand(FeatureCommand())
-    ..addCommand(BootstrapCommand());
+    ..addCommand(BootstrapCommand())
+    ..addCommand(WsGatewayCommand());
 
   try {
     final code = await runner.run(args);

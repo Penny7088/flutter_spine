@@ -1,4 +1,4 @@
-## 0.2.0
+## 0.2.2
 
 ### Added
 - **`BaseWsGateway`** — abstract WebSocket gateway for business modules. Delegates connection lifecycle to `WsClient`; subclasses (Market / Asset / Swap) define type-safe subscription APIs and topic encoding.
@@ -7,6 +7,9 @@
 - **`WsClientConfig.onAuthExpired` + `isAuthCloseCode`** — token expiry auto-refresh. When the server closes with an auth close code (e.g. 4001), `DefaultWsClient` calls `onAuthExpired` with single-flight guarantee, then reconnects with the new token. Unsuccessful refresh transitions to `WsFailed`.
 - **Close code handling in `DefaultWsClient`** — normal close codes (1000, 1001) now transition to `WsDisconnected` without triggering auto-reconnect. All other close codes continue to trigger standard reconnect.
 - **Unified `IOWebSocketChannel` in `_defaultFactory`** — always uses `IOWebSocketChannel.connect()`, no longer implicitly switches between `WebSocketChannel.connect()` and `IOWebSocketChannel` based on parameter presence. Behavior is now consistent regardless of whether headers/queryParams are configured.
+- **`WsTopicRouter.simple()`** — factory constructor for standard pub/sub protocols where channel name equals topic name. Auto-generates `topicExtractor`, `subscribeFrameBuilder`, and `unsubscribeFrameBuilder` from a single `channelKey` parameter.
+- **`WsModuleRegistry` + `WsModuleConfig`** — registration pattern for WebSocket modules. Each business module defines a `WsModuleConfig` instance; `WsModuleRegistry.build()` maps URIs to configs, replacing hand-written if-else chains in `wsConfigBuilderProvider` overrides.
+- **CLI `ws-gateway` command** — `flutter_spine:new ws-gateway <name>` generates topic / topic_router / ws_gateway / providers four-file scaffold.
 
 ### Changed
 - **Breaking**: `WsClientConfig.headers` replaced by `headersProvider` (`Map<String, dynamic> Function()?`). Existing code must change from `headers: {'key': 'val'}` to `headersProvider: () => {'key': 'val'}`.
@@ -19,7 +22,7 @@
 ### Example
 - **`demo_market_ws/`** — full `MarketWsGateway` implementation: topic encoding/decode (`MarketTopic`), protocol adapter (`marketTopicRouter`), Riverpod `StreamProvider.autoDispose.family` for automatic subscription lifecycle, and interactive lifecycle demo page.
 - **`demo_asset_ws/`** & **`demo_swap_ws/`** — showcase multi-module Gateway pattern. All three modules share the same auth/heartbeat/reconnect config via a `_sharedWsConfig` factory in `main.dart`, each overriding only its own `topicRouter`.
-- `main.dart` now demonstrates `FlutterSpineConfig.extraOverrides` with per-URI `WsClientConfig` dispatch.
+- `main.dart` now demonstrates `FlutterSpineConfig.extraOverrides` with `WsModuleRegistry.build()` replacing the if-else chain.
 
 ## 0.1.2
 

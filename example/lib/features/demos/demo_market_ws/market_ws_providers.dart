@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_spine/flutter_spine.dart';
 
 import 'market_topic.dart';
+import 'market_topic_router.dart';
 import 'market_ws_gateway.dart';
 
 /// Market 业务 Gateway —— VM / Repository 层直接通过此 provider 获取。
@@ -37,3 +38,12 @@ final marketGatewayProvider = Provider<MarketWsGateway>((ref) {
   final ws = ref.watch(wsClientProvider(marketWsUri));
   return MarketWsGateway(ws);
 });
+
+/// Market 模块自描述配置——注册到 [WsModuleRegistry] 即可按 URI 分发配置。
+///
+/// 共享的 auth / 心跳 / 重连策略由 [sharedWsConfig] 统一提供，
+/// 本模块只覆写自己的 [topicRouter]。
+final marketWsModule = WsModuleConfig(
+  uri: marketWsUri,
+  topicRouter: marketTopicRouter,
+);

@@ -725,6 +725,22 @@ runApp(ProviderScope(
 >
 > **Channel 类型**：`_defaultFactory` 统一使用 `IOWebSocketChannel.connect()`——不再根据参数
 > 隐式切换 `WebSocketChannel.connect()` 和 `IOWebSocketChannel`，行为可预期。
+>
+> **`WsTopicRouter.simple()`**：适用于 topic 名 = channel 名的标准 pub/sub 协议，
+> 一行替代手写三回调：
+> ```dart
+> topicRouter: WsTopicRouter.simple(channelKey: 'channel'),
+> ```
+> 复合 topic（如 Market 的 `price-info|eip155:1|native`）仍需完整构造器。
+>
+> **`WsModuleRegistry`**：多个业务模块时，用注册表替代 if-else 分支：
+> ```dart
+> // 各模块定义 WsModuleConfig 实例
+> final marketWsModule = WsModuleConfig(uri: marketWsUri, topicRouter: marketTopicRouter);
+> // main.dart 中一行注册
+> WsModuleRegistry.build(modules: [marketWsModule, assetWsModule], defaultConfig: sharedWsConfig)
+> ```
+> 新增模块只需在列表加一项，main.dart 不再膨胀。
 
 #### 2.2 业务侧使用：topic 订阅 API（推荐）
 
@@ -939,6 +955,7 @@ WsIdle ──connect()──▶ WsConnecting ──ready──▶ WsConnected
 | 心跳载荷 | `{"op":"ping"}` | `heartbeatPayload`；`Map`/`List` 自动 jsonEncode |
 | 连接 headers | 无 | `headersProvider`：每次 connect/重连实时获取 |
 | token 刷新 | 无 | `onAuthExpired` + `isAuthCloseCode`：单飞刷新 + 自动重连 |
+| URL 容错 | 无 | `http→ws` / `https→wss` 自动修正 + `:0` port 自动移除 |
 | 重连退避 | base × 2^(attempt-1)，封顶 maxDelay | `baseReconnectDelay` / `maxReconnectDelay` |
 | 退避抖动 | ±20% | `reconnectJitterRatio`；0 关闭 |
 | 最大重连次数 | 无限 | `maxReconnectAttempts`；达到后 `WsFailed` |

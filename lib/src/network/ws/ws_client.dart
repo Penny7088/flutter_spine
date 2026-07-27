@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../../flutter_spine.dart';
@@ -168,6 +170,48 @@ class WsTopicRouter {
     this.subscribeFrameBuilder,
     this.unsubscribeFrameBuilder,
   });
+
+  /// 快速构造器：适用于 topic 名和后端 channel 字段一一对应的标准 pub/sub 协议。
+  ///
+  /// 自动生成三个回调：
+  /// * [topicExtractor]：从 raw JSON 中按 [channelKey] 抽取 topic 名；
+  /// * [subscribeFrameBuilder]：`{'op': '$subOp', '$channelKey': topic}`；
+  /// * [unsubscribeFrameBuilder]：`{'op': '$unsubOp', '$channelKey': topic}`。
+  ///
+  /// ## 用法
+  ///
+  /// ```dart
+  /// // 最简：channel 字段名 = 'channel'
+  /// const router = WsTopicRouter.simple();
+  ///
+  /// // 自定义字段名和 op
+  /// const router = WsTopicRouter.simple(
+  ///   channelKey: 'type',    // 后端用 'type' 字段区分频道
+  ///   subOp: 'sub',
+  ///   unsubOp: 'unsub',
+  /// );
+  /// ```
+  ///
+  /// 复合 topic（如 Market 的 `price-info|eip155:1|native`）不适合本工厂，
+  /// 仍需使用完整构造器。
+  factory WsTopicRouter.simple({
+    String channelKey = 'channel',
+    String subOp = 'subscribe',
+    String unsubOp = 'unsubscribe',
+  }) {
+    return WsTopicRouter(
+      topicExtractor: (raw) {
+        try {
+          final m = jsonDecode(raw as String) as Map<String, dynamic>;
+          return m[channelKey] as String?;
+        } catch (_) {
+          return null;
+        }
+      },
+      subscribeFrameBuilder: (t) => {'op': subOp, channelKey: t},
+      unsubscribeFrameBuilder: (t) => {'op': unsubOp, channelKey: t},
+    );
+  }
 
   /// 从 raw message 抽出 topic 名。
   ///

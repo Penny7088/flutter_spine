@@ -17,12 +17,13 @@ import 'avoid_direct_dio.dart';
 /// * `dart:html` 的 `WebSocket(...)`（Web 平台）。
 ///
 /// **不**禁止：使用 `flutter_spine` 暴露的 `WsClient` / `DefaultWsClient` /
-/// `WsClientConfig` / `WsTopicRouter` 等已封装类型。
+/// `WsClientConfig` / `WsTopicRouter` / `BaseWsGateway` /
+/// `WsModuleRegistry` / `WsModuleConfig` 等已封装类型。
 ///
 /// ## 为什么
 ///
 /// * 业务代码绕过 `WsClient` 抽象 → 拿不到统一的状态机（[WsConnectionState]）；
-/// * 没有内置心跳 / 指数退避重连 / topic 订阅；
+/// * 没有内置心跳 / 指数退避重连 / topic 订阅 / token 自动刷新；
 /// * 重连失败后无法接入 [EffectShowError] / Riverpod observers；
 /// * 测试时无法注入 `_FakeWsChannel`，必须真连后端。
 ///
@@ -33,12 +34,26 @@ import 'avoid_direct_dio.dart';
 /// final ch = WebSocketChannel.connect(Uri.parse('wss://api/feed'));
 /// ch.stream.listen(_onMsg);
 ///
-/// // ✅ 通过注入 WsClient
-/// final ws = ref.watch(wsClientProvider(Uri.parse('wss://api/feed')));
-/// final sub = ws.subscribe<OrderEvent>(
-///   'order_update',
-///   decoder: (raw) => OrderEvent.fromJson(jsonDecode(raw as String) as Map<String, dynamic>),
-/// ).listen(_onMsg);
+/// // ✅ 三层架构（推荐）
+/// // 1. 定义模块配置
+/// final marketWsModule = WsModuleConfig(
+///   uri: Uri.parse('wss://market-api.example/feed'),
+///   topicRouter: WsTopicRouter.simple(channelKey: 'channel'),
+/// );
+///
+/// // 2. 注册到 WsModuleRegistry
+/// //    main.dart → FlutterSpineConfig.extraOverrides
+/// WsModuleRegistry.build(modules: [marketWsModule], defaultConfig: ...)
+///
+/// // 3. 创建 Gateway
+/// class MarketWsGateway extends BaseWsGateway {
+///   MarketWsGateway(super.ws);
+///   Stream<PriceUpdate> subscribePrice(String chain, String addr) =>
+///       ws.subscribe('price-info|$chain|$addr', decoder: PriceUpdate.fromRaw);
+/// }
+///
+/// // 4. 页面使用（StreamProvider.autoDispose 自动管理订阅生命周期）
+/// final priceAsync = ref.watch(priceStreamProvider(('eip155:1', 'native')));
 /// ```
 ///
 /// ## 豁免
@@ -54,9 +69,9 @@ class AvoidDirectWebSocket extends DartLintRule {
     problemMessage:
         '业务代码请使用 WsClient (flutter_spine)，不要直接连 WebSocket 底层 API。',
     correctionMessage:
-        '通过 ref.watch(wsClientProvider(uri)) 拿到 WsClient；'
-        '订阅用 ws.subscribe<T>(topic, decoder)；'
-        'topic 协议在 WsTopicRouter 里描述。',
+        '通过 WsTopicRouter.simple() / WsModuleRegistry / BaseWsGateway 三层架构接入；'
+        '订阅用 ws.subscribe<T>(topic, decoder: ...)；'
+        '用 StreamProvider.autoDispose.family 管理订阅生命周期。',
   );
 
   static const _wsChannelUri = 'package:web_socket_channel/';
