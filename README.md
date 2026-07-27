@@ -691,6 +691,8 @@ runApp(ProviderScope(
         url: uri,
         // 动态 headers —— 每次 connect/重连实时调用，token 过期后无需重建 config
         headersProvider: () => {'Authorization': 'Bearer ${session.token}'},
+        // 也可以 token 走 URL query string 而非 header：
+        // queryParamsProvider: () => {'token': session.accessToken},
         heartbeatInterval: const Duration(seconds: 25),
         heartbeatPayload: {'op': 'ping'},
         baseReconnectDelay: const Duration(seconds: 1),
@@ -717,6 +719,12 @@ runApp(ProviderScope(
 
 > **`headersProvider` vs 旧版 `headers`**：`headersProvider` 是一个回调，每次 connect / 重连时调用取最新值。
 > 旧版 `headers` 是静态 Map，token 过期后重连会带旧 token。建议所有新代码用 `headersProvider`。
+>
+> **`queryParamsProvider`**：token 走 URL query string（`?token=xxx`）而非 HTTP header 时使用。
+> 行为同 `headersProvider`——每次 connect / 重连回调取最新值，手动拼接 URL 避免 Dart SDK `Uri.replace()` 在某些场景下引入 `:0` 端口的 bug。
+>
+> **Channel 类型**：`_defaultFactory` 统一使用 `IOWebSocketChannel.connect()`——不再根据参数
+> 隐式切换 `WebSocketChannel.connect()` 和 `IOWebSocketChannel`，行为可预期。
 
 #### 2.2 业务侧使用：topic 订阅 API（推荐）
 

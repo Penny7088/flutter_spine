@@ -3,13 +3,15 @@
 ### Added
 - **`BaseWsGateway`** — abstract WebSocket gateway for business modules. Delegates connection lifecycle to `WsClient`; subclasses (Market / Asset / Swap) define type-safe subscription APIs and topic encoding.
 - **`WsClientConfig.headersProvider`** — dynamic headers callback. Called on every connect / reconnect to fetch the latest token, eliminating the need to rebuild config after auth refresh.
+- **`WsClientConfig.queryParamsProvider`** — dynamic query string callback. Same pattern as `headersProvider`, for backends that pass auth tokens via URL query params (`?token=xxx`) instead of HTTP headers. Manual string concatenation avoids Dart SDK `Uri.replace()` port `:0` bug.
 - **`WsClientConfig.onAuthExpired` + `isAuthCloseCode`** — token expiry auto-refresh. When the server closes with an auth close code (e.g. 4001), `DefaultWsClient` calls `onAuthExpired` with single-flight guarantee, then reconnects with the new token. Unsuccessful refresh transitions to `WsFailed`.
 - **Close code handling in `DefaultWsClient`** — normal close codes (1000, 1001) now transition to `WsDisconnected` without triggering auto-reconnect. All other close codes continue to trigger standard reconnect.
-- **`IOWebSocketChannel` for headers** — `_defaultFactory` now uses `web_socket_channel/io.dart`'s `IOWebSocketChannel.connect(url, headers: ...)` instead of manually composing `dart:io` + `package:web_socket` bridge.
+- **Unified `IOWebSocketChannel` in `_defaultFactory`** — always uses `IOWebSocketChannel.connect()`, no longer implicitly switches between `WebSocketChannel.connect()` and `IOWebSocketChannel` based on parameter presence. Behavior is now consistent regardless of whether headers/queryParams are configured.
 
 ### Changed
 - **Breaking**: `WsClientConfig.headers` replaced by `headersProvider` (`Map<String, dynamic> Function()?`). Existing code must change from `headers: {'key': 'val'}` to `headersProvider: () => {'key': 'val'}`.
-- `WsClientConfig` constructor now accepts `headersProvider`, `onAuthExpired`, and `isAuthCloseCode` (all optional).
+- `WsClientConfig` constructor now accepts `headersProvider`, `queryParamsProvider`, `onAuthExpired`, and `isAuthCloseCode` (all optional).
+- `_defaultFactory` no longer branches on parameter presence — always constructs `IOWebSocketChannel` for consistent behavior.
 
 ### Tests
 - 7 new test cases for close code handling and auth refresh (33 total in `test/network/ws/`).

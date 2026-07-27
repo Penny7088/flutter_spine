@@ -192,6 +192,7 @@ class WsClientConfig {
     required this.url,
     this.protocols,
     this.headersProvider,
+    this.queryParamsProvider,
     this.connectTimeout = const Duration(seconds: 10),
     this.heartbeatInterval = const Duration(seconds: 25),
     this.heartbeatPayload = '{"op":"ping"}',
@@ -217,6 +218,18 @@ class WsClientConfig {
   ///
   /// `null` = 不带附加 headers（默认）。
   final Map<String, dynamic> Function()? headersProvider;
+
+  /// 每次 connect / 重连时动态拼接到 URL query string 的参数提供者。
+  ///
+  /// 适用于 token 通过 query 参数传递（非 header）的场景：
+  ///
+  /// ```dart
+  /// queryParamsProvider: () => {'token': session.accessToken},
+  /// ```
+  ///
+  /// 实际连接 URL 为 `$url?$baseQuery&$dynamicParams`，动态参数会覆盖 base URL
+  /// 中的同名参数（后者优先）。`null` = 不拼接额外 query 参数（默认）。
+  final Map<String, String> Function()? queryParamsProvider;
 
   /// 握手超时。超时视为连接失败，进入重连流程。
   final Duration connectTimeout;

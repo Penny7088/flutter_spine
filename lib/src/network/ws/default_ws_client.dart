@@ -471,14 +471,20 @@ class _TopicEntry {
 
 WebSocketChannel _defaultFactory(WsClientConfig config) {
   final headers = config.headersProvider?.call();
-  if (headers == null) {
-    return WebSocketChannel.connect(
-      config.url,
-      protocols: config.protocols,
-    );
+  final queryParams = config.queryParamsProvider?.call();
+
+  String effectiveUrl = config.url.toString();
+  if (queryParams != null && queryParams.isNotEmpty) {
+    final sep = config.url.hasQuery ? '&' : '?';
+    final queryStr = queryParams.entries
+        .map((e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    effectiveUrl = '$effectiveUrl$sep$queryStr';
   }
+
   return IOWebSocketChannel.connect(
-    config.url.toString(),
+    effectiveUrl,
     protocols: config.protocols,
     headers: headers,
   );
