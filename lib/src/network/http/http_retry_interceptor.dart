@@ -22,14 +22,14 @@ import '../../../flutter_spine.dart';
 /// ## 用法
 ///
 /// ```dart
-/// DioHttpConfig(
-///   baseUrl: 'https://api.example.com',
-///   interceptors: [
-///     // 注意：RetryInterceptor 需要持有 Dio 引用以便重发——所以改用
-///     // [DioHttpConfig.retry] 字段，而不是手动 new。
-///   ],
-///   retry: const RetryConfig(maxRetries: 5, baseDelay: Duration(milliseconds: 200)),
-/// )
+/// // RetryInterceptor 需要持有 Dio 引用以便重发；
+/// // 推荐通过 [DioHttpClient.fromDio] 自行组装 Dio 实例后注册：
+/// final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'));
+/// dio.interceptors.addAll([
+///   RetryInterceptor(dio: dio, maxRetries: 5, baseDelay: Duration(milliseconds: 200)),
+///   // ...其他拦截器
+/// ]);
+/// final client = DioHttpClient.fromDio(dio);
 /// ```
 ///
 /// 想完全自定义 retry 谓词：传 [shouldRetry] 函数。返回 `true` 视为可重试。
@@ -169,7 +169,7 @@ class RetryInterceptor extends Interceptor {
   }
 }
 
-/// 给 [DioHttpConfig.retry] 用的"声明式"配置——
+/// 给 [RetryInterceptor] 用的"声明式"配置——业务可借此定义 retry 参数，
 /// [DioHttpClient.fromConfig] 拿到它后用本 dio 实例创建 [RetryInterceptor] 并注册。
 class RetryConfig {
   const RetryConfig({

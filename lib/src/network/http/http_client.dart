@@ -203,6 +203,31 @@ abstract class HttpClient {
     Duration? receiveTimeout,
   });
 
+  /// 流式请求——SSE / 大文件下载 / 长连接 push。
+  ///
+  /// 不同于 [request]/[requestRaw]，本方法返回 [StreamedHttpResponse]，
+  /// 其 [StreamedHttpResponse.stream] 可逐步消费字节流。
+  ///
+  /// ```dart
+  /// final res = await http.requestStream(
+  ///   method: HttpMethod.get,
+  ///   path: '/api/events',
+  /// );
+  /// await for (final chunk in res.stream) {
+  ///   // 解析 SSE 事件 / 写入文件
+  /// }
+  /// ```
+  Future<StreamedHttpResponse> requestStream({
+    required HttpMethod method,
+    required String path,
+    Object? body,
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+    CancelToken? cancelToken,
+    Duration? sendTimeout,
+    Duration? receiveTimeout,
+  });
+
   /// 创建一个 [CancelToken]。业务取消请求时 `ct.cancel()` 即可。
   CancelToken createCancelToken();
 
@@ -220,4 +245,8 @@ enum HttpResponseType {
 
   /// 不解析，body 作为 `List<int>` 字节流返回——下载文件常用。
   bytes,
+
+  /// 流式响应——SSE / 长连接 push / 大文件分块。
+  /// 使用 [HttpClient.requestStream] 消费，不要走 [HttpClient.request]。
+  stream,
 }

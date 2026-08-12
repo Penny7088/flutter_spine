@@ -23,7 +23,7 @@ import '../flutter_spine.dart';
 ///
 /// * 业务代码绕过 `HttpClient` 抽象，走裸 Dio → 错误归一缺失（拿不到 [AppException]）；
 /// * 测试时无法用 `MockHttpClient` / `_FakeAdapter` 注入；
-/// * `DioHttpConfig.retry` / `authRefresh` / `interceptors` 等"声明式"开关失效；
+/// * `DioHttpConfig.interceptors` 等"声明式"开关失效；
 /// * `MultipartFile`、`FormData` 等类型直接出现在业务里，会让业务依赖 dio 版本号。
 ///
 /// ## 改写指引

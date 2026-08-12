@@ -64,20 +64,14 @@ void main() {
       //   connectTimeout: const Duration(seconds: 10),
       //   receiveTimeout: const Duration(seconds: 15),
       //   interceptors: [
-      //     HttpLoggingInterceptor(),               // 请求/响应日志
-      //     EnvelopeUnwrapInterceptor(              // 后端统一信封解包
+      //     // 可选：使用内置拦截器或自行实现 Dio Interceptor
+      //     HttpLoggingInterceptor(logger: PrettyAppLogger()),
+      //     EnvelopeUnwrapInterceptor(
       //       codeKey: 'code',
       //       messageKey: 'message',
       //       dataKey: 'data',
       //     ),
       //   ],
-      //   retry: RetryConfig(                        // 指数退避重试
-      //     maxRetries: 3,
-      //     baseDelay: Duration(seconds: 1),
-      //   ),
-      //   authRefresh: AuthRefreshConfig(            // 401 自动刷新 token
-      //     refreshToken: () => _refreshToken(),
-      //   ),
       // ),
 
       // ── 5. WebSocket ────────────────────────────────────────────────────

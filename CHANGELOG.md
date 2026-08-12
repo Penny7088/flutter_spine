@@ -1,3 +1,24 @@
+## 0.2.4
+
+### Changed
+- **Breaking**: `DioHttpConfig.authRefresh` and `DioHttpConfig.retry` fields removed. `AuthRefreshInterceptor` and `RetryInterceptor` are no longer auto-registered by `DioHttpClient.fromConfig()`. Business code should explicitly add these interceptors via `DioHttpConfig.interceptors` (for `AuthTokenInterceptor` / `HttpLoggingInterceptor` / `EnvelopeUnwrapInterceptor`) or by assembling a `Dio` instance with `DioHttpClient.fromDio()` (for `AuthRefreshInterceptor` / `RetryInterceptor` which require a Dio reference).
+- Built-in interceptor classes (`AuthTokenInterceptor`, `HttpLoggingInterceptor`, `EnvelopeUnwrapInterceptor`, `AuthRefreshInterceptor`, `RetryInterceptor`, `AuthRefreshConfig`, `RetryConfig`) are **preserved** — business may still use them, just must register them explicitly.
+- `DioHttpConfig.interceptors` doc updated to clarify it accepts any Dio `Interceptor` (built-in or custom).
+
+### Added
+- **`HttpClient.requestStream()`** — streaming request method for SSE / large file downloads / long-poll push. Returns `StreamedHttpResponse` with `statusCode` / `headers` / `stream` (`Stream<List<int>>`). Error normalization matches `request()` — non-2xx / network errors / timeouts throw `AppException`.
+- **`StreamedHttpResponse`** — immutable stream response wrapper with `statusCode`, `headers`, `stream`, `isSuccess`, and `header()` lookup.
+- **`HttpResponseType.stream`** — new enum value; maps to Dio's `ResponseType.stream`.
+- 3 new tests in `dio_http_client_test.dart` covering stream response, 401 error, and cancelToken cancellation.
+
+### Docs
+- README §1.5 RetryInterceptor / §1.6 AuthRefreshInterceptor / §1.7 内置 Interceptor 速查 updated to show `DioHttpClient.fromDio()` assembly pattern.
+- README §1.8 流式响应 / SSE added.
+- `AiHelper/skills/flutter-core-http-setup/SKILL.md` updated: removed `authRefresh`/`retry` fields, added RetryInterceptor/AuthRefreshInterceptor assembly sections, added SSE/stream section.
+
+### Tests
+- `http_auth_refresh_interceptor_test.dart` and `http_retry_interceptor_test.dart` refactored to use `DioHttpClient.fromDio()` instead of `DioHttpConfig.authRefresh`/`.retry`.
+
 ## 0.2.3
 
 ### Fixed

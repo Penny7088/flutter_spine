@@ -2,11 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart' show MediaType;
 
 import '../../error/app_exception.dart';
-import 'http_auth_refresh_interceptor.dart';
 import 'http_client.dart';
 import 'http_method.dart';
 import 'http_response.dart';
-import 'http_retry_interceptor.dart';
 import 'multipart_file_part.dart';
 
 /// `HttpClient` 的 Dio 实现。
@@ -32,35 +30,6 @@ class DioHttpClient extends HttpClient {
     ));
     for (final i in config.interceptors) {
       dio.interceptors.add(i);
-    }
-    // AuthRefresh 必须排在业务 interceptors 之后、Retry 之前——
-    // 这样 401 先被 refresh 处理，5xx / timeout 才进 retry。
-    if (config.authRefresh != null) {
-      dio.interceptors.add(
-        AuthRefreshInterceptor(
-          dio: dio,
-          refreshToken: config.authRefresh!.refreshToken,
-          headerName: config.authRefresh!.headerName,
-          scheme: config.authRefresh!.scheme,
-          skipPaths: config.authRefresh!.skipPaths,
-          shouldRefresh: config.authRefresh!.shouldRefresh,
-          logger: config.authRefresh!.logger,
-        ),
-      );
-    }
-    if (config.retry != null) {
-      dio.interceptors.add(
-        RetryInterceptor(
-          dio: dio,
-          maxRetries: config.retry!.maxRetries,
-          baseDelay: config.retry!.baseDelay,
-          maxDelay: config.retry!.maxDelay,
-          jitterRatio: config.retry!.jitterRatio,
-          idempotentMethods: config.retry!.idempotentMethods,
-          shouldRetry: config.retry!.shouldRetry,
-          logger: config.retry!.logger,
-        ),
-      );
     }
     return DioHttpClient.fromDio(dio);
   }
@@ -236,12 +205,64 @@ class DioHttpClient extends HttpClient {
       throw UnknownException(message: e.toString(), raw: e, stackTrace: st);
     }
   }
+
+  @override
+  Future<StreamedHttpResponse> requestStream({
+    required HttpMethod method,
+    required String path,
+    Object? body,
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+    CancelToken? cancelToken,
+    Duration? sendTimeout,
+    Duration? receiveTimeout,
+  }) async {
+    try {
+      final dioRes = await _dio.request<ResponseBody>(
+        path,
+        data: body,
+        queryParameters: query,
+        cancelToken: cancelToken,
+        options: Options(
+          method: method.name,
+          headers: headers,
+          sendTimeout: sendTimeout,
+          receiveTimeout: receiveTimeout,
+          responseType: ResponseType.stream,
+        ),
+      );
+
+      final bodyData = dioRes.data;
+      if (bodyData == null) {
+        throw UnknownException(
+          message: 'Stream response body is null',
+          raw: dioRes,
+        );
+      }
+
+      return StreamedHttpResponse(
+        statusCode: dioRes.statusCode ?? 0,
+        headers: dioRes.headers.map.map(
+          (k, v) => MapEntry(k.toLowerCase(), v),
+        ),
+        stream: bodyData.stream,
+        requestPath: path,
+      );
+    } on DioException catch (e, st) {
+      throw _mapDioException(e, st);
+    } on AppException {
+      rethrow;
+    } catch (e, st) {
+      throw UnknownException(message: e.toString(), raw: e, stackTrace: st);
+    }
+  }
 }
 
 ResponseType _toDioResponseType(HttpResponseType t) => switch (t) {
-      HttpResponseType.json => ResponseType.json,
-      HttpResponseType.text => ResponseType.plain,
-      HttpResponseType.bytes => ResponseType.bytes,
+      HttpResponseType.json   => ResponseType.json,
+      HttpResponseType.text   => ResponseType.plain,
+      HttpResponseType.bytes  => ResponseType.bytes,
+      HttpResponseType.stream => ResponseType.stream,
     };
 
 /// 把 [DioException] 归一到 [AppException]。**给 [DioHttpClient] 内部用，也供测试用**。
@@ -343,8 +364,6 @@ class DioHttpConfig {
     this.defaultHeaders = const {},
     this.defaultContentType = Headers.jsonContentType,
     this.interceptors = const [],
-    this.authRefresh,
-    this.retry,
   });
 
   final String baseUrl;
@@ -354,14 +373,10 @@ class DioHttpConfig {
   final Map<String, String> defaultHeaders;
   final String defaultContentType;
 
-  /// 业务自定义 / 内置（auth / logging / error）interceptor 列表，按顺序注册。
+  /// 业务自定义 interceptor 列表，按顺序注册。
+  ///
+  /// 业务可选用 flutter_spine 内置拦截器（如 [AuthTokenInterceptor]、
+  /// [HttpLoggingInterceptor]、[EnvelopeUnwrapInterceptor]）或自行实现
+  /// Dio [Interceptor] 子类处理 header / 日志 / 信封解包等逻辑。
   final List<Interceptor> interceptors;
-
-  /// 401 → refresh → retry 配置。`null` = 不挂 [AuthRefreshInterceptor]。
-  /// 见 [AuthRefreshInterceptor] 的文档。
-  final AuthRefreshConfig? authRefresh;
-
-  /// 失败重试配置。`null` = 不挂 [RetryInterceptor]。
-  /// 见 [RetryInterceptor] 的文档。
-  final RetryConfig? retry;
 }

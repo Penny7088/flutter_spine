@@ -29,6 +29,7 @@ void main() {
       // 想接 HTTP？
       //   http: DioHttpConfig(
       //     baseUrl: 'https://api.example.com',
+      //     // interceptors 按需注册（内置或自定义 Dio Interceptor）
       //     interceptors: [AuthTokenInterceptor(tokenProvider: () => null)],
       //   ),
       // 想接 WebSocket（带 topic 路由）？

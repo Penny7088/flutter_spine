@@ -36,6 +36,25 @@ ResponseBody _json(Map<String, dynamic> body, [int status = 200]) {
   );
 }
 
+DioHttpClient _makeClient({
+  required String? Function() tokenProvider,
+  required Future<String?> Function() refreshToken,
+  List<String> skipPaths = const [],
+  required HttpClientAdapter adapter,
+}) {
+  final dio = Dio(BaseOptions(baseUrl: 'http://x'));
+  dio.interceptors.addAll([
+    AuthTokenInterceptor(tokenProvider: tokenProvider),
+    AuthRefreshInterceptor(
+      dio: dio,
+      refreshToken: refreshToken,
+      skipPaths: skipPaths,
+    ),
+  ]);
+  dio.httpClientAdapter = adapter;
+  return DioHttpClient.fromDio(dio);
+}
+
 void main() {
   group('AuthRefreshInterceptor — happy path', () {
     test('401 → refreshToken → 用新 token 重发 → 成功', () async {
@@ -53,20 +72,14 @@ void main() {
         },
       );
 
-      final client = DioHttpClient.fromConfig(
-        DioHttpConfig(
-          baseUrl: 'http://x',
-          interceptors: [
-            AuthTokenInterceptor(tokenProvider: () => currentToken),
-          ],
-          authRefresh: AuthRefreshConfig(
-            refreshToken: () async {
-              currentToken = 'new';
-              return 'new';
-            },
-          ),
-        ),
-      )..rawDio.httpClientAdapter = adapter;
+      final client = _makeClient(
+        tokenProvider: () => currentToken,
+        refreshToken: () async {
+          currentToken = 'new';
+          return 'new';
+        },
+        adapter: adapter,
+      );
 
       final res = await client.get<String>(
         '/me',
@@ -84,17 +97,11 @@ void main() {
         handler: (_) => _json({'message': 'expired'}, 401),
       );
 
-      final client = DioHttpClient.fromConfig(
-        DioHttpConfig(
-          baseUrl: 'http://x',
-          interceptors: [
-            AuthTokenInterceptor(tokenProvider: () => 'old'),
-          ],
-          authRefresh: AuthRefreshConfig(
-            refreshToken: () async => null,
-          ),
-        ),
-      )..rawDio.httpClientAdapter = adapter;
+      final client = _makeClient(
+        tokenProvider: () => 'old',
+        refreshToken: () async => null,
+        adapter: adapter,
+      );
 
       await expectLater(
         () => client.get('/me'),
@@ -109,17 +116,11 @@ void main() {
         handler: (_) => _json({'message': 'expired'}, 401),
       );
 
-      final client = DioHttpClient.fromConfig(
-        DioHttpConfig(
-          baseUrl: 'http://x',
-          interceptors: [
-            AuthTokenInterceptor(tokenProvider: () => 'old'),
-          ],
-          authRefresh: AuthRefreshConfig(
-            refreshToken: () async => throw const FormatException('boom'),
-          ),
-        ),
-      )..rawDio.httpClientAdapter = adapter;
+      final client = _makeClient(
+        tokenProvider: () => 'old',
+        refreshToken: () async => throw const FormatException('boom'),
+        adapter: adapter,
+      );
 
       await expectLater(
         () => client.get('/me'),
@@ -134,21 +135,15 @@ void main() {
         handler: (_) => _json({'message': 'bad creds'}, 401),
       );
 
-      final client = DioHttpClient.fromConfig(
-        DioHttpConfig(
-          baseUrl: 'http://x',
-          interceptors: [
-            AuthTokenInterceptor(tokenProvider: () => 'old'),
-          ],
-          authRefresh: AuthRefreshConfig(
-            refreshToken: () async {
-              refreshCount++;
-              return 'new';
-            },
-            skipPaths: ['/auth/'],
-          ),
-        ),
-      )..rawDio.httpClientAdapter = adapter;
+      final client = _makeClient(
+        tokenProvider: () => 'old',
+        refreshToken: () async {
+          refreshCount++;
+          return 'new';
+        },
+        skipPaths: ['/auth/'],
+        adapter: adapter,
+      );
 
       await expectLater(
         () => client.post('/auth/login', body: {'u': 'a', 'p': 'b'}),
@@ -164,20 +159,14 @@ void main() {
         handler: (_) => _json({'message': 'still bad'}, 401),
       );
 
-      final client = DioHttpClient.fromConfig(
-        DioHttpConfig(
-          baseUrl: 'http://x',
-          interceptors: [
-            AuthTokenInterceptor(tokenProvider: () => 'old'),
-          ],
-          authRefresh: AuthRefreshConfig(
-            refreshToken: () async {
-              refreshCount++;
-              return 'new';
-            },
-          ),
-        ),
-      )..rawDio.httpClientAdapter = adapter;
+      final client = _makeClient(
+        tokenProvider: () => 'old',
+        refreshToken: () async {
+          refreshCount++;
+          return 'new';
+        },
+        adapter: adapter,
+      );
 
       await expectLater(
         () => client.get('/me'),
@@ -208,23 +197,17 @@ void main() {
       );
 
       String currentToken = 'old';
-      final client = DioHttpClient.fromConfig(
-        DioHttpConfig(
-          baseUrl: 'http://x',
-          interceptors: [
-            AuthTokenInterceptor(tokenProvider: () => currentToken),
-          ],
-          authRefresh: AuthRefreshConfig(
-            refreshToken: () async {
-              refreshCount++;
-              // 模拟 refresh 慢一点，让所有并发 401 都堆到 await 这一步
-              final t = await completer.future;
-              currentToken = t;
-              return t;
-            },
-          ),
-        ),
-      )..rawDio.httpClientAdapter = adapter;
+      final client = _makeClient(
+        tokenProvider: () => currentToken,
+        refreshToken: () async {
+          refreshCount++;
+          // 模拟 refresh 慢一点，让所有并发 401 都堆到 await 这一步
+          final t = await completer.future;
+          currentToken = t;
+          return t;
+        },
+        adapter: adapter,
+      );
 
       // 并发起 5 个请求
       final futures = List.generate(

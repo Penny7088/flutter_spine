@@ -265,6 +265,59 @@ void main() {
       );
     });
   });
+
+  group('DioHttpClient — requestStream', () {
+    test('GET → 读取流式响应 chunk', () async {
+      final chunks = <List<int>>[];
+      final dio = Dio()
+        ..httpClientAdapter = _FakeAdapter(
+          (o) => _jsonBody({'message': 'ok'}),
+        );
+      final client = DioHttpClient.fromDio(dio);
+
+      final res = await client.requestStream(
+        method: HttpMethod.get,
+        path: '/events',
+      );
+
+      expect(res.statusCode, 200);
+      expect(res.isSuccess, isTrue);
+
+      await for (final chunk in res.stream) {
+        chunks.add(chunk);
+      }
+      expect(chunks, isNotEmpty);
+    });
+
+    test('401 → UnauthorizedException（不进流）', () async {
+      final dio = Dio()
+        ..httpClientAdapter = _FakeAdapter(
+          (o) => _jsonBody({'message': 'expired'}, 401),
+        );
+      final client = DioHttpClient.fromDio(dio);
+
+      await expectLater(
+        () => client.requestStream(method: HttpMethod.get, path: '/x'),
+        throwsA(isA<UnauthorizedException>()),
+      );
+    });
+
+    test('cancelToken 取消 → CancelledException', () async {
+      final dio = Dio()
+        ..httpClientAdapter = _FakeAdapter((o) => _jsonBody({}));
+      final client = DioHttpClient.fromDio(dio);
+      final ct = client.createCancelToken()..cancel('manual');
+
+      await expectLater(
+        () => client.requestStream(
+          method: HttpMethod.get,
+          path: '/x',
+          cancelToken: ct,
+        ),
+        throwsA(isA<CancelledException>()),
+      );
+    });
+  });
 }
 
 class _User {

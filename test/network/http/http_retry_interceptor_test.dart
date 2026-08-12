@@ -66,12 +66,19 @@ class SocketLikeException implements Exception {
 }
 
 DioHttpClient _build(_ScriptedAdapter adapter, RetryConfig retry) {
-  return DioHttpClient.fromConfig(
-    DioHttpConfig(
-      baseUrl: 'http://x',
-      retry: retry,
+  final dio = Dio(BaseOptions(baseUrl: 'http://x'));
+  dio.interceptors.add(
+    RetryInterceptor(
+      dio: dio,
+      maxRetries: retry.maxRetries,
+      baseDelay: retry.baseDelay,
+      maxDelay: retry.maxDelay,
+      jitterRatio: retry.jitterRatio,
+      idempotentMethods: retry.idempotentMethods,
     ),
-  )..rawDio.httpClientAdapter = adapter;
+  );
+  dio.httpClientAdapter = adapter;
+  return DioHttpClient.fromDio(dio);
 }
 
 void main() {

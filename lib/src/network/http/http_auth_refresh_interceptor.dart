@@ -21,18 +21,18 @@ typedef RefreshTokenCallback = Future<String?> Function();
 /// 推荐配合使用：
 ///
 /// ```dart
-/// DioHttpConfig(
-///   baseUrl: '...',
-///   interceptors: [
-///     AuthTokenInterceptor(tokenProvider: () => session.token),  // 注入
-///     // AuthRefreshInterceptor 必须排在所有"请求前"拦截器之后；
-///     // 推荐通过 [DioHttpConfig.authRefresh] 字段配置，flutter_spine 自动按正确顺序注入。
-///   ],
-///   authRefresh: AuthRefreshConfig(
+/// // AuthRefreshInterceptor 需要持有 Dio 引用以便重发；
+/// // 推荐通过 [DioHttpClient.fromDio] 自行组装 Dio 实例后注册：
+/// final dio = Dio(BaseOptions(baseUrl: '...'));
+/// dio.interceptors.addAll([
+///   AuthTokenInterceptor(tokenProvider: () => session.token),
+///   AuthRefreshInterceptor(
+///     dio: dio,
 ///     refreshToken: () => ref.read(authRepoProvider).refresh(),
 ///     skipPaths: ['/auth/login', '/auth/refresh'],
 ///   ),
-/// )
+/// ]);
+/// final client = DioHttpClient.fromDio(dio);
 /// ```
 ///
 /// ## 单飞保证
@@ -145,7 +145,7 @@ class AuthRefreshInterceptor extends Interceptor {
   }
 }
 
-/// 给 [DioHttpConfig.authRefresh] 用的"声明式"配置。
+/// 给 [AuthRefreshInterceptor] 用的"声明式"配置。
 class AuthRefreshConfig {
   const AuthRefreshConfig({
     required this.refreshToken,

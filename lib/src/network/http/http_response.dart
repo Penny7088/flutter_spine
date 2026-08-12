@@ -39,3 +39,33 @@ class HttpResponse<T> {
         requestPath: requestPath,
       );
 }
+
+/// 流式 HTTP 响应——用于 SSE / 大文件下载 / 长连接 push。
+///
+/// ```dart
+/// final res = await http.requestStream(method: HttpMethod.get, path: '/events');
+/// await for (final chunk in res.stream) {
+///   // SSE 事件解析 / 写入文件 / ...
+/// }
+/// ```
+class StreamedHttpResponse {
+  const StreamedHttpResponse({
+    required this.statusCode,
+    required this.headers,
+    required this.stream,
+    this.requestPath,
+  });
+
+  final int statusCode;
+  final Map<String, List<String>> headers;
+  final Stream<List<int>> stream;
+  final String? requestPath;
+
+  bool get isSuccess => statusCode >= 200 && statusCode < 300;
+
+  String? header(String name) {
+    final list = headers[name.toLowerCase()];
+    if (list == null || list.isEmpty) return null;
+    return list.first;
+  }
+}

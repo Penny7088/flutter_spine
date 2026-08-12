@@ -21,7 +21,7 @@ Shared infrastructure for Flutter apps. Provides **MVVM base classes + effect bu
 
 ```yaml
 dependencies:
-  flutter_spine: ^0.2.0
+  flutter_spine: ^0.2.4
 ```
 
 ```dart
@@ -439,7 +439,7 @@ runApp(ProviderScope(
         receiveTimeout: const Duration(seconds: 30),
         defaultHeaders: const {'X-App-Id': 'wallet'},
         interceptors: [
-          // 自动挂 Bearer token
+          // 动态 header（使用内置或自定义 Dio Interceptor）
           AuthTokenInterceptor(
             tokenProvider: () => box.read('access_token'),
             skipPaths: const ['/auth/login', '/auth/refresh'],
@@ -565,18 +565,20 @@ final result = await ref.read(httpClientProvider).upload<UploadResult>(
 
 #### 1.5 失败重试（`RetryInterceptor`）
 
-声明式开启——`DioHttpConfig.retry` 字段。**默认只重试幂等方法**（`GET/HEAD/PUT/DELETE/PATCH`）：
+`RetryInterceptor` 需要持有 Dio 引用以便重发，推荐通过 `DioHttpClient.fromDio` 自行组装。**默认只重试幂等方法**（`GET/HEAD/PUT/DELETE/PATCH`）：
 
 ```dart
-DioHttpConfig(
-  baseUrl: 'https://api.example.com',
-  retry: const RetryConfig(
+final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'));
+dio.interceptors.add(
+  RetryInterceptor(
+    dio: dio,
     maxRetries: 3,
-    baseDelay: Duration(milliseconds: 300),
-    maxDelay: Duration(seconds: 5),
-    jitterRatio: 0.2,             // ±20% 抖动避免雪崩
+    baseDelay: const Duration(milliseconds: 300),
+    maxDelay: const Duration(seconds: 5),
+    jitterRatio: 0.2,           // ±20% 抖动避免雪崩
   ),
-)
+);
+final client = DioHttpClient.fromDio(dio);
 ```
 
 **默认重试条件**（任一）：
@@ -617,15 +619,14 @@ RetryConfig(
 
 `401 → refresh → retry` 全自动，**带单飞保证**（N 个并发 401 只会触发 1 次刷 token）。
 
-声明式开启：`DioHttpConfig.authRefresh` 字段：
+`AuthRefreshInterceptor` 需要持有 Dio 引用，推荐通过 `DioHttpClient.fromDio` 自行组装：
 
 ```dart
-DioHttpConfig(
-  baseUrl: 'https://api.example.com',
-  interceptors: [
-    AuthTokenInterceptor(tokenProvider: () => session.token),  // 注入
-  ],
-  authRefresh: AuthRefreshConfig(
+final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'));
+dio.interceptors.addAll([
+  AuthTokenInterceptor(tokenProvider: () => session.token),  // 注入
+  AuthRefreshInterceptor(
+    dio: dio,
     refreshToken: () async {
       // 业务实现：调 /auth/refresh，写新 token 入 session，返回新 token
       final newToken = await ref.read(authRepoProvider).refresh();
@@ -634,7 +635,8 @@ DioHttpConfig(
     },
     skipPaths: const ['/auth/login', '/auth/refresh'],  // 这俩自己 401 别套娃
   ),
-)
+]);
+final client = DioHttpClient.fromDio(dio);
 ```
 
 **行为**：
@@ -646,7 +648,8 @@ DioHttpConfig(
 **自定义触发条件**（少数后端把 token 过期映射成 419 / 自定义 code）：
 
 ```dart
-AuthRefreshConfig(
+AuthRefreshInterceptor(
+  dio: dio,
   refreshToken: ...,
   shouldRefresh: (err) =>
       err.response?.statusCode == 401 ||
@@ -656,19 +659,37 @@ AuthRefreshConfig(
 
 #### 1.7 内置 Interceptor 速查
 
+业务可选用 flutter_spine 内置拦截器或自行实现 Dio `Interceptor` 子类，全部通过 `DioHttpConfig.interceptors` 或 `DioHttpClient.fromDio` 注册。
+
 | Interceptor / Config | 干啥 | 何时用 |
 |---|---|---|
 | `AuthTokenInterceptor` | 给请求挂 `Authorization: Bearer xxx` | 99% 后端鉴权 |
 | `HttpLoggingInterceptor` | 打 method + path + status + 耗时 | 全场景；body log 仅开 debug |
 | `EnvelopeUnwrapInterceptor` | 解包 `{code, message, data}` 后端约定 | 后端用统一 envelope 时；否则不加 |
-| `RetryConfig`（声明式） | 失败重试（指数退避 + 抖动 + 幂等判断） | 移动网络场景必备 |
-| `AuthRefreshConfig`（声明式） | 401 自动 refresh → retry，带单飞 | 任何带 token 过期的 app |
+| `RetryInterceptor` + `RetryConfig` | 失败重试（指数退避 + 抖动 + 幂等判断） | 移动网络场景必备 |
+| `AuthRefreshInterceptor` + `AuthRefreshConfig` | 401 自动 refresh → retry，带单飞 | 任何带 token 过期的 app |
 
-> **注入顺序**：`AuthRefresh` / `Retry` 由 flutter_spine 自动按"先 401 再 5xx"的正确顺序追加到链尾，业务 `interceptors` 列表保持只放"请求前/响应后"的轻量拦截器（auth/log/envelope）。
+> 需要更多自定义？`DioHttpConfig.interceptors` 接受任何 Dio `Interceptor`——业务自行实现即可。
 
-需要更多自定义？`DioHttpConfig.interceptors` 接受任何 `dio.Interceptor`——直接写 Dio interceptor 即可（**业务侧建议遵守 `avoid_direct_dio` lint，把 dio 类型限制在 interceptor 内部**）。
+#### 1.8 流式响应 / SSE（`requestStream`）
 
-#### 1.8 测试 Repository
+`requestStream()` 用于 SSE、大文件下载、长连接 push 等流式场景。返回 `StreamedHttpResponse`，通过 `stream` 属性逐步消费字节流：
+
+```dart
+final res = await http.requestStream(
+  method: HttpMethod.get,
+  path: '/api/chat/stream',
+);
+
+await for (final chunk in res.stream) {
+  final text = utf8.decode(chunk);
+  // SSE 帧解析、JSON 行解析、写入文件等
+}
+```
+
+> 错误归一与 `request()` 一致 —— 非 2xx 状态码、网络错误、超时等均抛 `AppException`。`StreamedHttpResponse.stream` 仅当 HTTP 层面成功后才开始消费。
+
+#### 1.9 测试 Repository
 
 ```dart
 test('UserRepository.me 解析正确', () async {
@@ -996,7 +1017,7 @@ source.last.simulateRemoteClose();        // 触发自动重连
 | **State** | `src/state/` | `ViewModelNotifier` / `AsyncViewModelNotifier` + family 版 + `ViewStatus` + `HasViewStatus` |
 | **UI** | `src/ui/` | `AppDefaultAppBar` + 6 个 `AppXxxScaffold` |
 | Error | `src/error/` | `sealed AppException` 层级 + `safeApiCall` + `Result<T>` |
-| **HTTP** | `src/network/http/` | `HttpClient` + `DioHttpClient` + 3 内置 Interceptor + provider |
+| **HTTP** | `src/network/http/` | `HttpClient` + `DioHttpClient` + 6 内置 Interceptor + provider |
 | **WebSocket** | `src/network/ws/` | `WsClient` + `DefaultWsClient`（重连/心跳/状态机/topic 订阅/token 刷新）+ `BaseWsGateway` + `WsTopicRouter` + provider |
 | Network | `src/network/` | `ChannelClient`（MethodChannel 薄封装） |
 | Pagination | `src/pagination/` | `PagedState` + `PagedNotifierMixin` + `PagedListView` |
@@ -1058,7 +1079,7 @@ void main() {
       http: DioHttpConfig(
         baseUrl: 'https://api.example.com',
         interceptors: [
-          AuthTokenInterceptor(tokenProvider: () => null),
+          AuthTokenInterceptor(tokenProvider: () => session.token),
           HttpLoggingInterceptor(logRequestBody: kDebugMode),
         ],
       ),

@@ -15,6 +15,7 @@ import 'http_client.dart';
 ///       DioHttpConfig(
 ///         baseUrl: 'https://api.example.com',
 ///         interceptors: [
+///           // 可选：业务自选拦截器（内置或自定义 Dio Interceptor）
 ///           AuthTokenInterceptor(tokenProvider: () => box.read('token')),
 ///           HttpLoggingInterceptor(logger: PrettyAppLogger(), logRequestBody: kDebugMode),
 ///         ],
