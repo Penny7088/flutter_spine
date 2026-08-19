@@ -11,8 +11,7 @@ import 'async_view_model_mixin.dart';
 /// API 100% 兼容旧版本，无需任何业务侧改动。
 ///
 /// 适用：详情页、设置页、用户信息等。状态直接是 `AsyncValue<T>`，loading / error
-/// 由 Riverpod 自动管理。分页列表请用 `PagedNotifierMixin`；需要自定义 status 字段的
-/// 复杂页面请用 `ViewModelNotifier`。
+/// 由 Riverpod 自动管理。需要自定义 status 字段的复杂页面请用 `ViewModelNotifier`。
 ///
 /// ## 典型写法
 ///

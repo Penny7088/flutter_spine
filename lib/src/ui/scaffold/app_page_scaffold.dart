@@ -16,8 +16,7 @@ import '../appbar/app_default_appbar.dart';
 ///
 /// * 不监听任何具体 VM 的 state——state 监听由 body 内部用 `Consumer` / `ref.watch`
 ///   自行完成，避免整页在任何一处 state 变化时整体重建；
-/// * 不内置 loading / error / empty 态——那是 `AppListPageScaffold` 或
-///   `AsyncPageStateView` 的职责。
+/// * 不内置 loading / error / empty 态——那是 `AsyncPageStateView` 的职责。
 ///
 /// ## 用法
 ///

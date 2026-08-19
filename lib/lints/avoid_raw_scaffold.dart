@@ -7,8 +7,8 @@ import 'package:analyzer/error/listener.dart';
 import 'package:custom_lint_builder/custom_lint_builder.dart';
 
 /// 禁止业务页面直接使用 `Scaffold(...)`；必须用 flutter_spine 提供的
-/// `AppPageScaffold` / `AppListPageScaffold` / `AppFormPageScaffold` /
-/// `AppBottomSheetScaffold` / `AppTabChildScaffold` / `AppRawPage` 之一。
+/// `AppPageScaffold` / `AppFormPageScaffold` /
+/// `AppBottomSheetScaffold` / `AppRawPage` 之一。
 ///
 /// 这样所有页面自动获得：统一 AppBar、SafeArea、键盘收起、Effect 分发、
 /// 以及与 MVVM 基类的默认联动。
@@ -25,8 +25,8 @@ class AvoidRawScaffold extends DartLintRule {
   static const _code = LintCode(
     name: 'avoid_raw_scaffold',
     problemMessage:
-        '业务页面请使用 AppPageScaffold / AppListPageScaffold / '
-        'AppFormPageScaffold / AppBottomSheetScaffold / AppTabChildScaffold / '
+        '业务页面请使用 AppPageScaffold / '
+        'AppFormPageScaffold / AppBottomSheetScaffold / '
         'AppRawPage 之一，而不是裸 Scaffold。',
     correctionMessage:
         '改用 AppPageScaffold(title: ..., body: ...) 可自动获得 '

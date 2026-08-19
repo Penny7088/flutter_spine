@@ -7,11 +7,38 @@ import '../../data/task.dart';
 import '../status_picker/status_picker_sheet.dart';
 import 'tasks_vm.dart';
 
-class TasksTab extends ConsumerWidget {
+/// 业务侧分页列表写法演示（v0.2.6 起 flutter_spine 移除分页模块，
+/// 状态类 / 刷新 / 加载更多全部由业务自己实现）：
+///
+///   * 状态类 → `TaskListState`（见 tasks_vm.dart）
+///   * 下拉刷新 → `RefreshIndicator` + `controller.refresh()`
+///   * 滚动到底 → `NotificationListener` + `controller.loadMore()`
+///   * 首屏 loading / error / 空态 → `AsyncValue.when` + 三态组件
+class TasksTab extends ConsumerStatefulWidget {
   const TasksTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TasksTab> createState() => _TasksTabState();
+}
+
+class _TasksTabState extends ConsumerState<TasksTab> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.metrics.pixels > n.metrics.maxScrollExtent - 200) {
+      ref.read(tasksVmProvider.notifier).loadMore();
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return AppPageScaffold(
       title: 'Tasks',
       actions: [
@@ -26,15 +53,65 @@ class TasksTab extends ConsumerWidget {
         tooltip: 'New task',
         child: const Icon(Icons.add),
       ),
-      body: PagedListView<Task>(
-        provider: tasksVmProvider,
-        controllerProvider: tasksVmProvider.notifier,
-        firstLoading: const SkeletonList(),
-        itemBuilder: (ctx, task, _) => _TaskTile(
-          task: task,
-          onPickStatus: () => _pickStatus(ctx, ref, task),
+      body: ref.watch(tasksVmProvider).when(
+            loading: () => const SkeletonList(),
+            error: (e, st) => ErrorView(
+              error: e,
+              onRetry: () => ref.invalidate(tasksVmProvider),
+            ),
+            data: (state) => _buildList(ref, state),
+          ),
+    );
+  }
+
+  Widget _buildList(WidgetRef ref, TaskListState state) {
+    if (state.isEmpty) return const EmptyView();
+
+    final items = state.items;
+    return RefreshIndicator(
+      onRefresh: () => ref.read(tasksVmProvider.notifier).refresh(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: ListView.separated(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: items.length + 1,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (ctx, i) {
+            if (i >= items.length) return _buildFooter(ref, state);
+            final task = items[i];
+            return _TaskTile(
+              task: task,
+              onPickStatus: () => _pickStatus(ctx, ref, task),
+            );
+          },
         ),
-        separatorBuilder: (_, __) => const Divider(height: 1),
+      ),
+    );
+  }
+
+  Widget _buildFooter(WidgetRef ref, TaskListState state) {
+    final error = state.moreError;
+    if (error != null) {
+      return MoreErrorBar(
+        error: error,
+        onRetry: () => ref.read(tasksVmProvider.notifier).loadMore(),
+      );
+    }
+    if (!state.hasMore) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('— 没有更多了 —', textAlign: TextAlign.center),
+      );
+    }
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
       ),
     );
   }

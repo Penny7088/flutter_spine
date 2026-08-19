@@ -20,7 +20,6 @@ import 'package:custom_lint_builder/custom_lint_builder.dart';
 /// 1. 类是 VM / Notifier（extends 或 with 任一）：
 ///    - `ViewModelNotifier` / `FamilyViewModelNotifier`
 ///    - `AsyncViewModelNotifier` / `FamilyAsyncViewModelNotifier`
-///    - `PagedNotifierMixin` / `PagedNotifierMixinNoArg`
 ///    - `Notifier` / `AsyncNotifier` / 它们的 auto-dispose / family 变体
 /// 2. 字段声明是 `static`；
 /// 3. 字段**不是** `const` 也**不是** `final`（即可变）。
@@ -44,8 +43,6 @@ class AvoidStaticMutableInNotifier extends DartLintRule {
     'FamilyViewModelNotifier',
     'AsyncViewModelNotifier',
     'FamilyAsyncViewModelNotifier',
-    'PagedNotifierMixin',
-    'PagedNotifierMixinNoArg',
     'Notifier',
     'AsyncNotifier',
     'AutoDisposeNotifier',

@@ -1,3 +1,91 @@
+## 0.2.6
+
+### Removed
+- **Breaking**: entire pagination module deleted (`lib/src/pagination/`): `PagedState`, `PagedNotifierMixin`, `PagedNotifierMixinNoArg`, `PagedController`, `PagedScaffold`. Business implements its own list state class + plain `AsyncNotifier` with hand-written `refresh` / `loadMore` (see migration below).
+- **Breaking**: CLI `paged-list` command deleted (command + 4 templates). `flutter_spine:new feature --variant=list` no longer exists — `--variant` is now `page | async | form`.
+- Lint supertype lists (`avoid_static_mutable_in_notifier`, `no_ui_in_viewmodel`) no longer reference the removed pagination mixins.
+
+### Changed
+- README §4 "Pattern C" rewritten as a business-side pagination reference implementation: custom `TaskListState` + `AutoDisposeAsyncNotifier` + `refresh()`/`loadMore()` + `RefreshIndicator`/`NotificationListener` UI.
+- Example `tasks_vm.dart` rewritten as the manual pagination reference: `TaskListState` (items/page/hasMore/isLoadingMore/moreError), snapshot-based optimistic update + rollback.
+- Example `tasks_tab.dart` updated to the new state type.
+
+### Migration
+```dart
+// 之前（≤0.2.5）
+class TasksVm extends AutoDisposeAsyncNotifier<PagedState<Task>>
+    with PagedNotifierMixinNoArg<Task> {
+  int get pageSize => 20;
+  Future<List<Task>> fetchPage(int page, int size) => repo.list(page: page, size: size);
+}
+
+// 之后（0.2.6+，业务侧完全自实现，约 40 行）
+@immutable
+class TaskListState {
+  const TaskListState({this.items = const [], this.page = 1,
+    this.hasMore = true, this.isLoadingMore = false, this.moreError});
+  final List<Task> items; final int page;
+  final bool hasMore; final bool isLoadingMore; final Object? moreError;
+  // copyWith / isEmpty ...
+}
+
+class TasksVm extends AutoDisposeAsyncNotifier<TaskListState> {
+  static const _pageSize = 20;
+  @override
+  Future<TaskListState> build() => _fetch(1);
+  Future<TaskListState> _fetch(int page) async { ... }
+  Future<void> refresh() async { await future; ref.invalidateSelf(); await future; }
+  Future<bool> loadMore() async { ... }
+}
+```
+
+## 0.2.5
+
+### Removed
+- **Breaking**: `easy_refresh` dependency removed — flutter_spine no longer provides pull-to-refresh / load-more UI machinery.
+- **Breaking**: `PagedListView` deleted (`lib/src/pagination/paged_list_view.dart`), including `PagedScrollViewBuilder`. Business builds its own list UI: `PagedScaffold` + `RefreshIndicator` / `NotificationListener` / own refresh framework, calling `PagedController.refresh()` / `loadMore()`.
+- **Breaking**: `AppListPageScaffold` deleted. Use `PagedScaffold` (state machine: loading / error / empty / data) + business-side list.
+- **Breaking**: `AppTabChildScaffold` deleted. Compose `EffectListener(source: ..., handleDefaults: false)` + `AutomaticKeepAliveClientMixin` directly (the class was a 66-line thin wrapper).
+- **Breaking**: `FilterNotifier` deleted (`lib/src/filter/`). Write a plain `Notifier<F>` subclass instead (`initial` / `set` / `update` / `reset` are trivial to replicate).
+- `avoid_raw_scaffold` lint message updated: no longer suggests the removed scaffolds.
+
+### Changed
+- `PagedNotifierMixin` doc: `PagedController` is now driven by business-side UI triggers.
+- `PagedScaffold` doc examples updated to business-side refresh pattern.
+- CLI `paged-list` page template rewritten: generates `PagedScaffold` + `ListView` + `RefreshIndicator` example with TODO markers where business adds its own load-more trigger.
+- `flutter_spine.dart` exports updated (4 export lines removed).
+
+### Example
+- `tasks_tab.dart` rewritten as the reference implementation: `RefreshIndicator` + `NotificationListener<ScrollNotification>` load-more + `AsyncValue.when` first-loading/error + `MoreErrorBar` footer.
+- Removed `demo_paged_list_page.dart` / `demo_app_list_page.dart` demos (router + demos index updated).
+
+### Fixed
+- `test/pagination/paged_notifier_mixin_test.dart` — family provider reads updated to pass an argument (pre-existing breakage on Riverpod 2.6.1: reading `_fakeListProvider.future` without an arg threw a null cast).
+
+### Migration
+```dart
+// 之前：PagedListView 全自动（内置 easy_refresh）
+PagedListView<Task>(
+  provider: tasksVmProvider,
+  controllerProvider: tasksVmProvider.notifier,
+  itemBuilder: (ctx, task, _) => TaskTile(task),
+)
+
+// 之后：业务自己组合
+RefreshIndicator(
+  onRefresh: () => ref.read(tasksVmProvider.notifier).refresh(),
+  child: NotificationListener<ScrollNotification>(
+    onNotification: (n) {
+      if (n.metrics.pixels > n.metrics.maxScrollExtent - 200) {
+        ref.read(tasksVmProvider.notifier).loadMore();
+      }
+      return false;
+    },
+    child: ListView.builder(...),
+  ),
+)
+```
+
 ## 0.2.4
 
 ### Changed

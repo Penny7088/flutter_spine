@@ -13,7 +13,7 @@ description: Generate a new feature/page/VM/repository in flutter_core or busine
 |---|---|
 | "加个普通页面 / 表单页 / 详情页" | `page` |
 | "加个异步加载页（首屏 loading/error）" | `async-page` |
-| "加个分页列表 / 无限下拉" | `paged-list` |
+| "加个分页列表 / 无限下拉" | 无内置命令——业务自建状态类 + 手写 refresh/loadMore（README §4） |
 | "加个表单页（输入 + 提交）" | `form` |
 | "加个 Repository / 数据层" | `repo` |
 | "加个自定义 Effect" | `effect` |
@@ -28,7 +28,6 @@ description: Generate a new feature/page/VM/repository in flutter_core or busine
    ```bash
    dart run flutter_core:new page user_profile --with-test
    dart run flutter_core:new async-page order_detail
-   dart run flutter_core:new paged-list orders
    dart run flutter_core:new form login
    dart run flutter_core:new repo user
    dart run flutter_core:new effect refresh_balance

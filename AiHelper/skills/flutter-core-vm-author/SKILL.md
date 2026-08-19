@@ -13,7 +13,7 @@ description: Author or refactor a ViewModel using flutter_core's ViewModelNotifi
 | 异步加载（首屏 loading）+ 业务变更 | `AsyncViewModelNotifier<T>` 或 `with AsyncViewModelMixin<T>` |
 | 带 build 参数（family） | `FamilyViewModelNotifier<S, Arg>` 或 `with FamilyViewModelMixin<S, Arg>` |
 | 带 build 参数（family）+ 异步 | `AsyncFamilyViewModelNotifier<T, Arg>` 或 `with FamilyAsyncViewModelMixin<T, Arg>` |
-| 分页列表 | `AsyncNotifier with PagedNotifierMixin` 或 `with PagedNotifierMixinNoArg`（实现 `fetchPage(int page)`） |
+| 分页列表 | 业务自建状态类 + `AutoDisposeAsyncNotifier`，手写 `refresh` / `loadMore`（无内置分页类型，见 README §4 Pattern C） |
 
 ## 同步 VM 模板
 

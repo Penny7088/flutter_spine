@@ -4,8 +4,8 @@ import '../../../flutter_spine.dart';
 
 /// 默认加载中视图。
 ///
-/// 业务层可通过 [PagedListView.firstLoading] 或 [AsyncPageStateView.loading]
-/// 参数传入自定义 Widget 覆盖（如骨架屏 [SkeletonList]）。
+/// 业务层可通过 [AsyncPageStateView.loading] 参数传入自定义 Widget 覆盖
+/// （如骨架屏 [SkeletonList]）。
 class LoadingView extends StatelessWidget {
   const LoadingView({
     super.key,

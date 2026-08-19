@@ -56,42 +56,6 @@ class {{Name}}Vm extends _${{Name}}Vm with AsyncViewModelMixin<{{Name}}Data> {
 }
 ''';
 
-const pagedListVmTemplateGen = r'''
-import 'package:flutter_spine/flutter_spine.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
-import '{{name_snake}}_item.dart';
-
-part '{{name_snake}}_vm.g.dart';
-
-@riverpod
-class {{Name}}Vm extends _${{Name}}Vm
-    with PagedNotifierMixinNoArg<{{Name}}Item> {
-  // riverpod_generator 静态扫描 class 必须能看到 build()——
-  // 这里转发给 PagedNotifierMixinNoArg 的 default 实现。
-  @override
-  Future<PagedState<{{Name}}Item>> build() => // ignore: unnecessary_overrides
-      super.build();
-
-  @override
-  int get pageSize => 20;
-
-  @override
-  Future<List<{{Name}}Item>> fetchPage(int page, int size) async {
-    // TODO: 改成 ref.read(xxxRepositoryProvider).list(page: page, size: size)
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (page > 3) return const [];
-    return List.generate(
-      size,
-      (i) => {{Name}}Item(
-        id: 'p${page}_i$i',
-        title: '{{Title}} #$page-$i',
-      ),
-    );
-  }
-}
-''';
-
 const formVmTemplateGen = r'''
 import 'package:flutter_spine/flutter_spine.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

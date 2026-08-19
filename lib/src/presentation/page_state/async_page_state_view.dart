@@ -10,7 +10,6 @@ import '../../../flutter_spine.dart';
 ///   * [AsyncPageStateView] 额外提供空态，通过 [isEmpty] 回调判断。
 ///
 /// 适用场景：单数据页面 + 有空态区分（如订单详情、列表初次加载）。
-/// 分页列表场景请用 [PagedListView]。
 ///
 /// 用法：
 /// ```dart

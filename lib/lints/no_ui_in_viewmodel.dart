@@ -20,7 +20,6 @@ import 'package:custom_lint_builder/custom_lint_builder.dart';
 /// 2. 该类或它的祖先（含 mixin）是以下之一：
 ///    - `ViewModelNotifier` / `FamilyViewModelNotifier`
 ///    - `AsyncViewModelNotifier` / `FamilyAsyncViewModelNotifier`
-///    - `PagedNotifierMixin` / `PagedNotifierMixinNoArg`
 /// 3. 出现以下调用：
 ///    - `Navigator.xxx(...)`（任何静态/工厂方法）
 ///    - `ScaffoldMessenger.xxx(...)`
@@ -43,8 +42,6 @@ class NoUiInViewModel extends DartLintRule {
     'FamilyViewModelNotifier',
     'AsyncViewModelNotifier',
     'FamilyAsyncViewModelNotifier',
-    'PagedNotifierMixin',
-    'PagedNotifierMixinNoArg',
   };
 
   static const _bannedReceivers = {

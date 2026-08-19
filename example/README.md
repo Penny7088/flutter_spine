@@ -7,8 +7,9 @@
 │                  HomePage  (AppPageScaffold)              │
 │  ┌────────────────────┬────────────────────────────────┐  │
 │  │   TasksTab          │      StatsTab                  │  │
-│  │  AppTabChildScaffold│   AppTabChildScaffold          │  │
-│  │  + PagedListView    │   + AsyncViewModelNotifier     │  │
+│  │  AppPageScaffold    │   AppPageScaffold              │  │
+│  │  + RefreshIndicator │   + AsyncViewModelNotifier     │  │
+│  │  + 手动分页 Notifier │                                │  │
 │  └─────────┬───────────┴────────────────────────────────┘  │
 │            │ tap → showModalBottomSheet                     │
 │            ▼                                                │
@@ -70,8 +71,8 @@ class Bad extends StatelessWidget {
 | `lib/data/task.dart` | 简单 immutable model |
 | `lib/data/task_repository.dart` | fake 仓库；`safeApiCall` 把 `throw String` → `AppException` |
 | `lib/features/home/home_page.dart` | `AppPageScaffold` + `TabBar`，无嵌套 Scaffold |
-| `lib/features/home/tasks_vm.dart` | `PagedNotifierMixinNoArg` + 乐观更新 + 失败回滚 |
-| `lib/features/home/tasks_tab.dart` | `AppTabChildScaffold` + `PagedListView` + 触发 sheet |
+| `lib/features/home/tasks_vm.dart` | 业务侧手动分页：自建 `TaskListState` + `AutoDisposeAsyncNotifier` + 手写 refresh/loadMore + 乐观更新/回滚 |
+| `lib/features/home/tasks_tab.dart` | 业务侧分页列表：`RefreshIndicator` + `NotificationListener` 触发 refresh/loadMore + 触发 sheet |
 | `lib/features/home/stats_vm.dart` | `AsyncViewModelNotifier`（state = `AsyncValue<T>`）|
 | `lib/features/home/stats_tab.dart` | `asyncStats.when(...)` 三态 + RefreshIndicator |
 | `lib/features/new_task/new_task_vm.dart` | `ViewModelNotifier` + `run()` 三段式 + `emit(EffectPop)` |

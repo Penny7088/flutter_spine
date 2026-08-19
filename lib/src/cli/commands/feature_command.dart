@@ -6,7 +6,6 @@ import '../templates/async_page_template.dart';
 import '../templates/form_template.dart';
 import '../templates/generator_templates.dart';
 import '../templates/page_template.dart';
-import '../templates/paged_list_template.dart';
 import '../templates/repo_template.dart';
 import 'base_command.dart';
 
@@ -17,11 +16,11 @@ class FeatureCommand extends FlutterSpineCommand {
     argParser
       ..addOption(
         'variant',
-        allowed: const ['page', 'async', 'list', 'form'],
+        allowed: const ['page', 'async', 'form'],
         defaultsTo: 'async',
         help: '页面变体：'
             'page=同步 VM；async=AsyncViewModelNotifier+AsyncBuilder；'
-            'list=分页列表；form=表单。',
+            'form=表单。',
       )
       ..addFlag('with-repo',
           help: '同时生成 Repository 三件套（放 lib/data/<name>/）。',
@@ -40,7 +39,7 @@ class FeatureCommand extends FlutterSpineCommand {
 
   @override
   String get invocation =>
-      'flutter_spine:new feature <name> [--variant=async|page|list|form] '
+      'flutter_spine:new feature <name> [--variant=async|page|form] '
       '[--with-repo] [--with-route] [--with-test]';
 
   @override
@@ -81,13 +80,6 @@ class FeatureCommand extends FlutterSpineCommand {
             render(gen ? asyncPageVmTemplateGen : asyncPageVmTemplate));
         writer.writeFile(
             p.join(dir, '${snake}_page.dart'), render(asyncPagePageTemplate));
-      case 'list':
-        writer.writeFile(
-            p.join(dir, '${snake}_item.dart'), render(pagedListItemTemplate));
-        writer.writeFile(p.join(dir, '${snake}_vm.dart'),
-            render(gen ? pagedListVmTemplateGen : pagedListVmTemplate));
-        writer.writeFile(
-            p.join(dir, '${snake}_page.dart'), render(pagedListPageTemplate));
       case 'form':
         writer.writeFile(
             p.join(dir, '${snake}_state.dart'), render(formStateTemplate));
@@ -121,7 +113,6 @@ class FeatureCommand extends FlutterSpineCommand {
     final tpl = switch (variant) {
       'page' => pageVmTestTemplate,
       'async' => asyncPageVmTestTemplate,
-      'list' => pagedListVmTestTemplate,
       'form' => formVmTestTemplate,
       _ => null,
     };

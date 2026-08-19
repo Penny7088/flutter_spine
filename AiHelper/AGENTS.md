@@ -13,7 +13,7 @@
 |---|---|---|
 | ❌ 业务代码 `import 'package:flutter_core/src/...'` | 破坏封装 | 只 import `package:flutter_core/flutter_core.dart` |
 | ❌ ViewModel 持有 `BuildContext` / `Navigator` / `ScaffoldMessenger` / `showDialog` | 无法 headless 测试 | `emit(EffectXxx(...))`，UI 走 `EffectListener` |
-| ❌ 业务页面 `extends Scaffold` 或裸 `Scaffold(...)` | 漏接 EffectListener / SafeArea | 选 `AppPageScaffold` / `AppListPageScaffold` 等 |
+| ❌ 业务页面 `extends Scaffold` 或裸 `Scaffold(...)` | 漏接 EffectListener / SafeArea | 选 `AppPageScaffold` / `AppFormPageScaffold` / `AppBottomSheetScaffold` / `AppRawPage` |
 | ❌ 业务代码 `import 'package:dio/...'` 或 `Dio()` | 没法 mock，没法换实现 | 注入 `httpClientProvider`，配置走 `DioHttpConfig` |
 | ❌ 业务代码 `import 'package:web_socket_channel/...'` 或 `WebSocketChannel.connect(...)` | 同上 | 用 `wsClientProvider`，订阅走 `subscribe<T>(topic)` |
 | ❌ 业务代码 `Hive.box(...)` / `Hive.openBox(...)` | 同上 | 注入 `keyValueStorageProvider` |
@@ -46,7 +46,7 @@ class FooVm extends ViewModelNotifier<FooState> {     // 或 with ViewModelMixin
 ### 4.1 用户说"加一个新页面"
 
 1. 看 `flutter-core-new-feature` skill。
-2. 优先 CLI：`dart run flutter_core:new <page|async-page|paged-list|form|feature> <name> [--with-test] [--with-repo] [--gen]`。**不要**手抄模板——CLI 是单一来源。
+2. 优先 CLI：`dart run flutter_core:new <page|async-page|form|feature> <name> [--with-test] [--with-repo] [--gen]`。**不要**手抄模板——CLI 是单一来源。
 3. 路由约定走业务包 `lib/app/router.dart`，flutter_core 不管。
 
 ### 4.2 用户说"加 HTTP 接口" / "调后端"
@@ -54,7 +54,7 @@ class FooVm extends ViewModelNotifier<FooState> {     // 或 with ViewModelMixin
 1. 看 `flutter-core-http-setup` skill。
 2. Repository 层用 `httpClient.get/post/...<T>(path, decoder: ...)`，绝不直接 import dio。
 3. 接 `safeApiCall` 把异常归一到 `AppException` 子类。
-4. 需要重试 / 401 刷新 / 文件上传，看 `DioHttpConfig.retry / authRefresh` 和 `httpClient.upload`。
+4. 需要重试 / 401 刷新，用 `DioHttpClient.fromDio` 自行组装 `RetryInterceptor` / `AuthRefreshInterceptor`（见 http-setup skill）；文件上传走 `httpClient.upload`。
 
 ### 4.3 用户说"加 WebSocket" / "实时推送"
 

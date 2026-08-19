@@ -11,6 +11,7 @@
 ///   {{name}}       — camelCase
 ///   {{name_snake}} — snake_case
 ///   {{Title}}      — Title Case
+library;
 
 const wsGatewayTopicTemplate = r'''
 /// {{Name}} WebSocket 复合 topic 的编码/解码工具。

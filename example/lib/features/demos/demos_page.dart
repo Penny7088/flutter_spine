@@ -62,18 +62,6 @@ class DemosPage extends StatelessWidget {
             onTap: () => context.push('/demos/effect-routing'),
           ),
           _DemoTile(
-            icon: Icons.view_list,
-            title: 'PagedListView + CustomScrollView',
-            subtitle: 'scrollViewBuilder / enableLoadMore / SliverAppBar demo',
-            onTap: () => context.push('/demos/paged-list'),
-          ),
-          _DemoTile(
-            icon: Icons.dashboard,
-            title: 'AppListPageScaffold',
-            subtitle: 'Same features via AppListPageScaffold shortcut',
-            onTap: () => context.push('/demos/app-list'),
-          ),
-          _DemoTile(
             icon: Icons.person,
             title: 'My Page (Counter)',
             subtitle: 'ViewModelNotifier + EffectHaptic',

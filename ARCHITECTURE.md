@@ -24,15 +24,14 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                          UI / Page                            │
-│  AppPageScaffold · AppListPageScaffold · AppFormPageScaffold  │
-│  AppBottomSheetScaffold · AppTabChildScaffold · AppRawPage    │
-│  AppDefaultAppBar                                             │
+│  AppPageScaffold · AppFormPageScaffold · AppBottomSheetScaffold│
+│  AppRawPage · AppDefaultAppBar                                 │
 └────────────┬───────────────────────────────────┬─────────────┘
              │ watch / read                     │ EffectListener
              ▼                                  ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                       ViewModel (Riverpod)                    │
-│  ViewModelNotifier · AsyncViewModelNotifier · PagedNotifier   │
+│  ViewModelNotifier · AsyncViewModelNotifier · 业务自建 Notifier │
 │  ── 唯一改 state 入口：update(reducer)                         │
 │  ── 唯一发副作用：emit(Effect)                                 │
 │  ── 异步任务：run(action, onStart/onSuccess/onFailure)         │
@@ -123,10 +122,14 @@ abstract class AsyncViewModelNotifier<T> extends AutoDisposeAsyncNotifier<T> {
 | Scaffold | 适用 | 自动给你 |
 |---|---|---|
 | `AppPageScaffold` | 普通页面 | AppBar / EffectListener / 键盘隐藏 / SafeArea |
-| `AppListPageScaffold` | 列表页（含分页） | 上 + `PagedListView` 三态槽位 |
 | `AppFormPageScaffold` | 表单页 | 上 + 底部固定按钮 + 自动避让键盘 |
 | `AppBottomSheetScaffold` | 半屏 sheet 内容 | drag handle + title bar + EffectListener |
-| `AppTabChildScaffold` | TabBarView 子项 | EffectListener + AutomaticKeepAlive |
+| `AppRawPage` | 全自定义逃生口 | EffectListener |
+
+> v0.2.5 移除：`AppListPageScaffold`（分页列表）与 `AppTabChildScaffold`（Tab 子页）。
+> v0.2.6 移除：`PagedState` / `PagedNotifierMixin` / `PagedScaffold`（整个分页模块）。
+> 列表页 → 业务自建状态类 + 自己的刷新/加载更多方案（README §4 Pattern C）；
+> Tab 子页 → `EffectListener` + `AutomaticKeepAliveClientMixin` 自行组合。
 | `AppRawPage` | 全自定义逃生口 | 仅 EffectListener |
 | `AppDefaultAppBar` | 标准 AppBar | title / leading / actions / back behavior |
 
@@ -343,7 +346,7 @@ void main() {
 | VM 让 UI 跳页 | `emit(EffectNavigate('/detail/$id'))` |
 | VM 让 UI 关页 | `emit(EffectPop(result))` |
 | VM 让 UI 弹 toast | `emit(EffectShowToast('done', level: ToastLevel.success))` |
-| 列表分页 | `extends AsyncNotifier with PagedNotifierMixinNoArg`，写 `fetchPage` 即可 |
+| 列表分页 | 业务自建状态类 + `AutoDisposeAsyncNotifier`，手写 `refresh` / `loadMore`（README §4） |
 | 测 VM | `final h = createVmTestHarness(); ...; expect(h.effects.lastPayload, isToast());` |
 | 启动 app | `FlutterCore.runApp(config: FlutterCoreConfig(...), app: (ctx) => MaterialApp(...))` |
 | 接 toast | 默认走 SnackBar；用 BotToast 传 `MaterialDefaultEffectHandler(toast: ...)` 即可 |

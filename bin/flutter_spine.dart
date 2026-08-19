@@ -7,7 +7,6 @@ import 'package:flutter_spine/src/cli/commands/effect_command.dart';
 import 'package:flutter_spine/src/cli/commands/feature_command.dart';
 import 'package:flutter_spine/src/cli/commands/form_command.dart';
 import 'package:flutter_spine/src/cli/commands/page_command.dart';
-import 'package:flutter_spine/src/cli/commands/paged_list_command.dart';
 import 'package:flutter_spine/src/cli/commands/repo_command.dart';
 import 'package:flutter_spine/src/cli/commands/ws_gateway_command.dart';
 
@@ -20,7 +19,6 @@ import 'package:flutter_spine/src/cli/commands/ws_gateway_command.dart';
 ///
 /// dart run flutter_spine:new page user_profile --with-test
 /// dart run flutter_spine:new async-page order_detail
-/// dart run flutter_spine:new paged-list orders
 /// dart run flutter_spine:new form login
 /// dart run flutter_spine:new repo user
 /// dart run flutter_spine:new effect refresh_balance
@@ -35,7 +33,6 @@ Future<void> main(List<String> args) async {
   )
     ..addCommand(PageCommand())
     ..addCommand(AsyncPageCommand())
-    ..addCommand(PagedListCommand())
     ..addCommand(FormCommand())
     ..addCommand(RepoCommand())
     ..addCommand(EffectCommand())

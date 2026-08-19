@@ -64,9 +64,9 @@ import 'package:flutter_spine/flutter_spine.dart';
 |---|---|---|---|
 | **业务页面**（多字段、多动作、需自管 loading） | `ViewModelNotifier<S>` | 自定义 immutable 类（推荐 `with HasViewStatus`） | 表单、复杂工作台 |
 | **单一数据展示**（拉一份、偶尔 mutate） | `AsyncViewModelNotifier<T>` | `AsyncValue<T>` | 详情页、设置页 |
-| **分页列表** | `AutoDisposeAsyncNotifier<PagedState<T>> with PagedNotifierMixinNoArg<T>` | `AsyncValue<PagedState<T>>` | 订单列表、消息流 |
+| **分页列表** | 业务自建状态类 + `AutoDisposeAsyncNotifier`（见 §4 Pattern C） | `AsyncValue<自定义 ListState>` | 订单列表、消息流 |
 
-带运行时参数（如详情页按 `id`）的，对应有 `FamilyViewModelNotifier` / `FamilyAsyncViewModelNotifier` / `PagedNotifierMixin<T, Arg>`。
+带运行时参数（如详情页按 `id`）的，对应有 `FamilyViewModelNotifier` / `FamilyAsyncViewModelNotifier`。
 
 ---
 
@@ -179,65 +179,104 @@ final userProfileVmProvider =
 
 ---
 
-### 4. Pattern C — 分页列表
+### 4. Pattern C — 分页列表（业务侧完全自实现）
+
+v0.2.6 起 flutter_spine **不再提供任何分页类型**（`PagedState` / `PagedNotifierMixin` /
+`PagedScaffold` 均已移除）。业务自建状态类 + plain AsyncNotifier + 手写 refresh/loadMore：
+
+**1) 状态类（业务侧）**
 
 ```dart
-class TasksVm extends AutoDisposeAsyncNotifier<PagedState<Task>>
-    with PagedNotifierMixinNoArg<Task> {
-  @override int get pageSize => 20;
-
-  @override
-  Future<List<Task>> fetchPage(int page, int size) =>
-      ref.read(taskRepoProvider).list(page: page, size: size);
-
-  // 乐观更新 + 失败回滚
-  Future<void> markDone(String id) async {
-    patch((items) =>
-        [for (final t in items) if (t.id == id) t.copyWith(done: true) else t]);
-    try {
-      await ref.read(taskRepoProvider).markDone(id);
-    } on AppException catch (e) {
-      _emit(EffectShowError(e));
-      await refresh();
-    }
-  }
-
-  void _emit(Effect e) => ref.read(effectBusProvider).emit(runtimeType, e);
+@immutable
+class TaskListState {
+  const TaskListState({
+    this.items = const [], this.page = 1,
+    this.hasMore = true, this.isLoadingMore = false, this.moreError,
+  });
+  final List<Task> items;
+  final int page;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final Object? moreError;
+  bool get isEmpty => items.isEmpty;
+  TaskListState copyWith({...}) => ...;
 }
-
-final tasksVmProvider =
-    AutoDisposeAsyncNotifierProvider<TasksVm, PagedState<Task>>(TasksVm.new);
 ```
 
-> ⚠️ `PagedNotifierMixin` 不带 `emit()` 助手——如上自己写一个 `_emit` 即可，
-> 或在业务包里建个 mixin。
-
-UI 侧直接用 `PagedListView<Task>` 把 `provider` / `controllerProvider` 传进去，refresh / loadMore / 三态全自动。
-
-**`scrollViewBuilder`** 参数让你把列表嵌入 `CustomScrollView`，自由组合 `SliverAppBar`、
-`SliverToBoxAdapter` 等额外 sliver：
+**2) VM（plain AsyncNotifier，约 40 行）**
 
 ```dart
-PagedListView<Task>(
-  provider: tasksVmProvider,
-  controllerProvider: tasksVmProvider.notifier,
-  firstLoading: const SkeletonList(),
-  itemBuilder: (ctx, task, _) => TaskTile(task),
-  scrollViewBuilder: (ctx, physics, sliverChild) => CustomScrollView(
-    physics: physics,
-    slivers: [
-      SliverAppBar(title: const Text('Pinned'), pinned: true),
-      SliverToBoxAdapter(child: SomeHeader()),
-      sliverChild,
-      SliverToBoxAdapter(child: SomeFooter()),
-    ],
-  ),
+class TasksVm extends AutoDisposeAsyncNotifier<TaskListState> {
+  static const _pageSize = 20;
+
+  @override
+  Future<TaskListState> build() => _fetch(1);
+
+  Future<TaskListState> _fetch(int page) async {
+    final items = await ref.read(taskRepoProvider).list(page: page, size: _pageSize);
+    return TaskListState(items: items, page: page, hasMore: items.length >= _pageSize);
+  }
+
+  Future<void> refresh() async {
+    await future;
+    ref.invalidateSelf();
+    await future;
+  }
+
+  Future<bool> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasMore || current.isLoadingMore) return false;
+    state = AsyncData(current.copyWith(isLoadingMore: true));
+    try {
+      final next = current.page + 1;
+      final newItems = await ref.read(taskRepoProvider).list(page: next, size: _pageSize);
+      final result = TaskListState(
+        items: [...current.items, ...newItems], page: next,
+        hasMore: newItems.length >= _pageSize,
+      );
+      state = AsyncData(result);
+      return result.hasMore;
+    } catch (e) {
+      state = AsyncData(current.copyWith(isLoadingMore: false, moreError: e));
+      return false;
+    }
+  }
+}
+```
+
+**3) UI（业务自己的刷新框架）**
+
+```dart
+// 下拉刷新 → RefreshIndicator + controller.refresh()
+// 滚动到底 → NotificationListener + controller.loadMore()
+ref.watch(tasksVmProvider).when(
+  loading: () => const SkeletonList(),
+  error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(tasksVmProvider)),
+  data: (state) => state.isEmpty
+      ? const EmptyView()
+      : RefreshIndicator(
+          onRefresh: () => ref.read(tasksVmProvider.notifier).refresh(),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n.metrics.pixels > n.metrics.maxScrollExtent - 200) {
+                ref.read(tasksVmProvider.notifier).loadMore();
+              }
+              return false;
+            },
+            child: ListView.builder(
+              itemCount: state.items.length,
+              itemBuilder: (ctx, i) => TaskTile(state.items[i]),
+            ),
+          ),
+        ),
 )
 ```
 
-**`enableLoadMore`** 设为 `false` 时隐藏上拉加载更多 footer，只保留下拉刷新（适合全量加载的列表）。
+加载更多失败时 `state.moreError` 非空——业务用 `MoreErrorBar(error: ..., onRetry: loadMore)`
+展示重试入口；`state.hasMore == false` 时展示"没有更多"footer。
 
-`AppListPageScaffold` 同样透传这两个参数。
+> 完整可跑参考实现见 [`example/lib/features/home/tasks_vm.dart`](./example/lib/features/home/tasks_vm.dart)
+> + [`tasks_tab.dart`](./example/lib/features/home/tasks_tab.dart)。
 
 ---
 
@@ -303,11 +342,14 @@ if (r is Ok<T>) { /* 后续动作，比如 emit toast + pop */ }
 | Scaffold | 适用 |
 |---|---|
 | `AppPageScaffold` | 普通业务页面 |
-| `AppListPageScaffold` | 列表页（含分页 + 三态槽位 + `scrollViewBuilder` / `enableLoadMore`） |
 | `AppFormPageScaffold` | 表单页（底部固定按钮、自动避让键盘） |
 | `AppBottomSheetScaffold` | 半屏 sheet 内容 |
-| `AppTabChildScaffold` | TabBarView 子项 |
 | `AppRawPage` | 全自定义逃生口（仍带 EffectListener）|
+
+> 列表页 / Tab 子页不再内置（v0.2.5 起移除）：
+> * 分页列表 → 业务自建状态类 + 自己的刷新/加载更多方案（见 §4 Pattern C）；
+> * Tab 子页 → 直接用 `EffectListener(source: ..., handleDefaults: false)` +
+>   `AutomaticKeepAliveClientMixin` 组合。
 
 每个 Scaffold 都接受 `source: VmType` + `onEffect: (ctx, e) => ...`，自动挂 `EffectListener`。
 
@@ -317,8 +359,8 @@ if (r is Ok<T>) { /* 后续动作，比如 emit toast + pop */ }
 > |---------------------|-----------------|------|
 > | 根级（`FlutterSpine.runApp`） | `false` | 不处理内置 effect |
 > | `AppPageScaffold` | `true` | 统一处理 navigate/toast/pop/dialog/haptic |
-> | `AppTabChildScaffold` | `false` | 只处理 `onEffect` 业务自定义 |
 > | `AppBottomSheetScaffold` | `false` | 只处理 `onEffect` 业务自定义 |
+> | 业务自组装的子页 `EffectListener` | `false` | 只处理 `onEffect` 业务自定义 |
 >
 > 父路由容器页面应设 `handleDefaultEffects: false`，避免处理子页面 VM 的 effect。
 
@@ -1015,13 +1057,11 @@ source.last.simulateRemoteClose();        // 触发自动重连
 |---|---|---|
 | **Effect** | `src/effect/` | `EffectBus` + `Effect` sealed + `EffectListener` + `DefaultEffectHandler` |
 | **State** | `src/state/` | `ViewModelNotifier` / `AsyncViewModelNotifier` + family 版 + `ViewStatus` + `HasViewStatus` |
-| **UI** | `src/ui/` | `AppDefaultAppBar` + 6 个 `AppXxxScaffold` |
+| **UI** | `src/ui/` | `AppDefaultAppBar` + 4 个 `AppXxxScaffold` |
 | Error | `src/error/` | `sealed AppException` 层级 + `safeApiCall` + `Result<T>` |
 | **HTTP** | `src/network/http/` | `HttpClient` + `DioHttpClient` + 6 内置 Interceptor + provider |
 | **WebSocket** | `src/network/ws/` | `WsClient` + `DefaultWsClient`（重连/心跳/状态机/topic 订阅/token 刷新）+ `BaseWsGateway` + `WsTopicRouter` + provider |
 | Network | `src/network/` | `ChannelClient`（MethodChannel 薄封装） |
-| Pagination | `src/pagination/` | `PagedState` + `PagedNotifierMixin` + `PagedListView` |
-| Filter | `src/filter/` | `FilterNotifier` 过滤基类 |
 | Presentation | `src/presentation/` | `AsyncBuilder` + `AsyncValue` 扩展 + 三态 page-state view |
 | Logging | `src/logging/` | `AppLogger` 抽象 + `PrettyAppLogger` |
 | Observers | `src/observers/` | `ErrorObserver` + `LogObserver` |
@@ -1188,7 +1228,6 @@ dart run flutter_spine:new --help
 |---|---|---|
 | `page` | 同步 VM 页面 | `<name>_state.dart` + `<name>_vm.dart` + `<name>_page.dart` |
 | `async-page` | 拉接口页面（`AsyncViewModelNotifier` + `AsyncBuilder`） | `<name>_data.dart` + `<name>_vm.dart` + `<name>_page.dart` |
-| `paged-list` | 分页列表（`PagedNotifierMixin` + `AppListPageScaffold`） | `<name>_item.dart` + `<name>_vm.dart` + `<name>_page.dart` |
 | `form` | 表单页（state + canSubmit + run + EffectPop） | `<name>_state.dart` + `<name>_vm.dart` + `<name>_page.dart` |
 | `repo` | Repository 三件套（abstract + Http impl + provider） | 生成到 `lib/data/` |
 | `effect` | 自定义 Effect 类 | 生成到 `lib/effects/` |
@@ -1248,7 +1287,8 @@ dart run flutter_spine:new feature wallet \
 #   - 在 routes:[ 后追加 GoRoute(path: '/wallet', builder: ... WalletPage())
 ```
 
-`feature` 的 `--variant` 可选 `page` / `async` / `list` / `form`，对应上表四种页面命令。
+`feature` 的 `--variant` 可选 `page` / `async` / `form`，对应上表三种页面命令。
+分页列表没有内置命令（v0.2.6 起移除）——按 §4 Pattern C 业务侧自实现。
 
 **4. 单独生成 Repository / Effect**
 

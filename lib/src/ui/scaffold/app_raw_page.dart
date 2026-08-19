@@ -5,7 +5,7 @@ import '../../effect/effect_listener.dart';
 
 /// 逃生舱：不做任何页面结构假设，只接入 Effect 分发。
 ///
-/// 99% 的页面应当用 `AppPageScaffold` / `AppListPageScaffold` 等更具结构的版本。
+/// 99% 的页面应当用 `AppPageScaffold` / `AppFormPageScaffold` 等更具结构的版本。
 /// 只有在面对全屏播放器、自绘画布、特殊启动页等"非标准页面"时才降级到本类，
 /// 以便这些页面依然能响应 VM 侧的 toast / navigate / haptic 等副作用。
 ///

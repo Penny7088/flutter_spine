@@ -6,7 +6,7 @@
 /// 约定：
 ///   * Core 不包含任何业务颜色、路由名、API 端点；
 ///   * DataSource / Repository 的出口必须通过 [safeApiCall] 包裹；
-///   * 分页列表 Notifier 继承 [PagedNotifierMixin]，禁止 static 可变字段；
+///   * Notifier 禁止 static 可变字段；
 ///   * Toast 回调由业务包注入到 [ErrorObserver]，Core 不依赖 toast 库。
 library;
 
@@ -59,15 +59,6 @@ export 'src/network/ws/ws_providers.dart';
 export 'src/network/ws/base_ws_gateway.dart';
 export 'src/network/ws/ws_module_registry.dart';
 
-// ── Pagination ─────────────────────────────────────────────────────────────
-export 'src/pagination/paged_state.dart';
-export 'src/pagination/paged_notifier_mixin.dart';
-export 'src/pagination/paged_list_view.dart';
-export 'src/pagination/paged_scaffold.dart';
-
-// ── Filter ─────────────────────────────────────────────────────────────────
-export 'src/filter/filter_notifier.dart';
-
 // ── Presentation ───────────────────────────────────────────────────────────
 export 'src/presentation/async_builder.dart';
 export 'src/presentation/async_value_ext.dart';
@@ -105,7 +96,5 @@ export 'src/utils/context_ext.dart';
 export 'src/ui/appbar/app_default_appbar.dart';
 export 'src/ui/scaffold/app_raw_page.dart';
 export 'src/ui/scaffold/app_page_scaffold.dart';
-export 'src/ui/scaffold/app_list_page_scaffold.dart';
 export 'src/ui/scaffold/app_form_page_scaffold.dart';
 export 'src/ui/scaffold/app_bottom_sheet_scaffold.dart';
-export 'src/ui/scaffold/app_tab_child_scaffold.dart';
