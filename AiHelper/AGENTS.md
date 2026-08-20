@@ -1,8 +1,8 @@
-# `flutter_core` · Agent 总纲
+# `flutter_spine` · Agent 总纲
 
 ## 1. 我是谁
 
-- `flutter_core` 是**业务无关**、**UI 框架解耦**的 Flutter 地基包：MVVM + Riverpod + Effect Bus + 网络（HTTP/WS）+ 本地 KV 存储 + 自定义 Lint。
+- `flutter_spine` 是**业务无关**、**UI 框架解耦**的 Flutter 地基包：MVVM + Riverpod + Effect Bus + 网络（HTTP/WS）+ 本地 KV 存储 + 自定义 Lint。
 - 目标用户是**别的业务包**（`flutter_wallet`、`flutter_promotion` 等）。
 - 一切公开 API 必须能在不引入业务概念的前提下使用，因此 PR 评审会以"业务团队 5 分钟读懂"为基准。
 - 完整里程碑见 [`ARCHITECTURE.md`](../ARCHITECTURE.md)（P1-P8）和 [`README.md`](README.md)。
@@ -11,7 +11,7 @@
 
 | 红线 | 为什么 | 怎么做 |
 |---|---|---|
-| ❌ 业务代码 `import 'package:flutter_core/src/...'` | 破坏封装 | 只 import `package:flutter_core/flutter_core.dart` |
+| ❌ 业务代码 `import 'package:flutter_spine/src/...'` | 破坏封装 | 只 import `package:flutter_core/flutter_core.dart` |
 | ❌ ViewModel 持有 `BuildContext` / `Navigator` / `ScaffoldMessenger` / `showDialog` | 无法 headless 测试 | `emit(EffectXxx(...))`，UI 走 `EffectListener` |
 | ❌ 业务页面 `extends Scaffold` 或裸 `Scaffold(...)` | 漏接 EffectListener / SafeArea | 选 `AppPageScaffold` / `AppFormPageScaffold` / `AppBottomSheetScaffold` / `AppRawPage` |
 | ❌ 业务代码 `import 'package:dio/...'` 或 `Dio()` | 没法 mock，没法换实现 | 注入 `httpClientProvider`，配置走 `DioHttpConfig` |
@@ -87,9 +87,9 @@ class FooVm extends ViewModelNotifier<FooState> {     // 或 with ViewModelMixin
 | `lib/src/network/ws/**` | `flutter test test/network/ws/` |
 | `lib/src/effect/**` | `flutter test test/effect/` |
 | `lib/src/cli/**` 或 `bin/new.dart` | 手动 `dart run flutter_core:new <subcmd> <tmp_name> --dry-run` smoke |
-| `flutter_core_lint/lib/src/lints/` | `cd package/flutter_core/example && dart run custom_lint` 验证不挂 |
 
-最终 PR 前必须：`cd package/flutter_core && flutter analyze && flutter test`。
+
+最终 PR 前必须：`cd package/flutter_spine && flutter analyze && flutter test`。
 
 ## 6. 命名 / 文件位置
 
@@ -97,7 +97,6 @@ class FooVm extends ViewModelNotifier<FooState> {     // 或 with ViewModelMixin
 - State 文件：和 VM 同文件 OR 同目录 `<feature>_state.dart`，必须 `@immutable` + `copyWith`。
 - Effect：`<feature>_effects.dart`，`sealed class XxxEffect extends Effect`。
 - 公开 API 一律加 dartdoc（`///`），中文 OK；私有可以省。
-- 公开 API 的破坏性改动必须更新 [`README.md`](README.md) 和 [`ARCHITECTURE.md`](../ARCHITECTURE.md)。
 
 ## 7. 禁用清单（不要再做）
 
@@ -105,8 +104,4 @@ class FooVm extends ViewModelNotifier<FooState> {     // 或 with ViewModelMixin
 - 不要把 effect 塞进 state 字段（"toast 后 setState 清空"那种 hack）—— 状态会被时间旅行 / 错位重放。
 - 不要在 ViewModel 里 `try/catch` 后吞错——`run()` 已经把失败统一上报，业务 try-catch 等于把信号丢了。
 - 不要给 `ViewModelNotifier` 加新基类层级——能力扩展走 mixin 组合，不要继承链。
-- 不要在 `flutter_core` 包内引入业务模型（`Order` / `User` / `Wallet`）—— 它就是地基，地基里不能有业务。
-
-## 8. 路线图（不可绕过的待办）
-
-- **Riverpod 3.x 迁移**：当前 SDK 卡在 Dart 3.6.0，需 ≥ 3.7.0。详见 [`MIGRATING_RIVERPOD_3.md`](MIGRATING_RIVERPOD_3.md)。在 SDK 升级前**任何 Riverpod 3 API 都不要混入**。
+- 不要在 `flutter_spine` 包内引入业务模型（`Order` / `User` / `Wallet`）—— 它就是地基，地基里不能有业务。
